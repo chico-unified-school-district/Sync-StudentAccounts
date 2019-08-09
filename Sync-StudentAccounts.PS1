@@ -277,7 +277,7 @@ do {
    New-ADuser @newUserParams -WhatIf:$WhatIf # Create Simple User Object
    if ($userObj = queryUser $empId) {
     # I keep removing this and then I keep putting it back. Just leave it, dude.
-    Write-Verbose "$samid,New User - Syncing AD"; Start-Sleep 5 # wait while AD replicates
+    Write-Verbose "$samid,New User - Syncing AD"; Start-Sleep 10 # wait while AD replicates
     UserTasks $userObj.ObjectGUID
    }
    # End  Check New User Object

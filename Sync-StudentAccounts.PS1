@@ -93,7 +93,7 @@ $userAccountExpireDate = Get-Date "August 15 $year"
 # Imported Functions
 . '.\lib\Add-Log.ps1'           # Format log strings
 . '.\lib\Create-GSuiteURL.ps1'  # Create personal GSuite link in users's docs folder.
-. '.\lib\Create-HomDir.ps1'     # Create and configure the user's home directory
+. '.\lib\Create-HomeDir.ps1'     # Create and configure the user's home directory
 . '.\lib\Random-Password.ps1'   # Create random initial password
 . '.\lib\Invoke-SQLCommand.ps1 '# Useful function for querying SQL and returning results
 

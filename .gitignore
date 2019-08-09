@@ -1,0 +1,12 @@
+*.zip
+*.log
+*.pw
+log/*
+logs/*
+*.html
+*.cp
+*desktop.ini
+desktop.ini
+oauth2.txt
+*oauth2.txt
+*lookupTable.json

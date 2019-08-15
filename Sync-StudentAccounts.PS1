@@ -88,7 +88,7 @@ $lookUpTable = Get-Content -Path .\json\lookupTable.json -Raw | ConvertFrom-Json
 
 # ♥ If current month is greater than 6 (June) Set userAccountExpireDate to August 15th of next year. ♥
 $year = "{0:yyyy}" -f $(if ((Get-Date -f MM) -gt 6) { (Get-Date).AddYears(1) } else { Get-Date })
-$userAccountExpireDate = Get-Date "August 15 $year"
+$userAccountExpireDate = Get-Date "August 18 $year"
 
 # Imported Functions
 . '.\lib\Add-Log.ps1'           # Format log strings
@@ -128,7 +128,7 @@ function userTasks {
  Write-Verbose "Running Student User Tasks for $samid"
  # Read-Host "Pausing First, DUDE !!!"
  $userParams = @{
-  AccountExpirationDate = $userAccountExpireDate
+  AccountExpirationDate = $null
   CannotChangePassword  = $False
   ChangePasswordAtLogon = $False
   PasswordNeverExpires  = $False

@@ -6,6 +6,7 @@ SELECT
  STU.SC as departmentNumber,
  STU.U12 as GSuiteStatus,
  STU.GR as grade
+ 
 FROM STU
 WHERE 
  ( (STU.del = 0) OR (STU.del IS NULL) ) AND ( STU.tg = ' ' )

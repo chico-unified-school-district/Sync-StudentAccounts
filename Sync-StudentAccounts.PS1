@@ -152,7 +152,7 @@ function userTasks {
  Set-ADUser -Identity $userGuid -Replace $userAttributes -Confirm:$False -WhatIf:$WhatIf
 
  if ([adsi]::Exists("LDAP://$path")) {
-  Add-Log move "$samid,$path" $WhatIf
+  Add-Log move ('{0},{1}' -f $samid, $path.Split(",")[0] + ',' + $path.Split(",")[1]) $WhatIf
   Move-ADObject -Identity $userGuid -TargetPath $path -WhatIf:$WhatIf
  }
  else { Add-Log warning "$samid,PATH INVALID:$path" $WhatIf }

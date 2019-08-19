@@ -147,6 +147,7 @@ function userTasks {
   description                = 'Student User Account'
   department                 = $site.SiteName
   departmentNumber           = $row.DepartmentNumber
+  gecos                      = $row.grade
  }
  Add-Log userparams $samid $WhatIf
  Set-ADUser -Identity $userGuid -Replace $userAttributes -Confirm:$False -WhatIf:$WhatIf
@@ -217,39 +218,44 @@ $dbParams = @{
 if ($Permid) { $query = $(Get-Content -Path .\sql\single-permid.sql -Raw) + $PermId }
 else { $query = Get-Content -Path .\sql\active-students.sql -Raw }
 
+# Begin Major Loop
 do {
- # Begin Major Loop
+ <# ===========================================
+       Retrieve and compare Aeries and AD
+    =========================================== #> 
  $results = Invoke-SQLCommand @dbParams -Query $query
- if ( !$PermId ) {
-  $adStuParams = @{
-   filter     = { (employeeId -like "*") -and (homepage -like "*@chicousd.net") }
-   properties = 'employeeId', 'departmentNumber'
-   SearchBase = 'OU=Students,OU=Users,OU=Domain_Root,DC=chico,DC=usd'
-  }
-  Write-Verbose "Querying Active Directory for current student accounts"
-  # "[a-zA-Z][a-zA-Z]\d{5,6}" matches out current naming standard FN+LN+PermID
-  $adStudents = Get-ADUser @adStuParams | Where-Object {
-   ($_.samAccountName -match "[a-zA-Z][a-zA-Z]\d{5,6}") -and ($_.employeeId -match "\d{5,6}") }
-  Write-Verbose "Comparing Aeries and AD results."
-  # This section greatly reduces the number of process entries as we only want results for objects that are not currently
-  # in the 'OU=Students,OU=Users,OU=Domain_Root,DC=chico,DC=usd' OU
-  $compareParams = @{
-   ReferenceObject  = $Results
-   DifferenceObject = $adStudents
-   Debug            = $false
-  }
-  $diffObjects = Compare-Object @compareParams -Property employeeId, departmentNumber
-  $idString = $null
-  # need some descriptive comment here of the below logic
-  ($diffObjects.Where( { $_.sideindicator -eq "<=" })).employeeId.foreach( { $idString += ("{0}," -f $_) })
-  $idString = " ({0})" -f ($idString).Substring(0, $idString.Length - 1) # Trim the trailing comma
-  if ($idString) {
-   $diffQuery = (Get-Content .\sql\search-ids.sql -Raw) + $idString # Build a query just for the subset of ids
-  }
-  else { continue } # if idString array is empty then skip this loop.
-  $results = Invoke-SQLCommand @dbParams -Query $diffQuery
- }
-
+ # if ( !$PermId ) {
+ #  $adStuParams = @{
+ #   filter     = { (employeeId -like "*") -and (homepage -like "*@chicousd.net") }
+ #   properties = 'employeeId', 'departmentNumber', 'gecos'
+ #   SearchBase = 'OU=Students,OU=Users,OU=Domain_Root,DC=chico,DC=usd'
+ #  }
+ #  Write-Verbose "Querying Active Directory for current student accounts"
+ #  # "[a-zA-Z][a-zA-Z]\d{5,6}" matches out current naming standard FN+LN+PermID
+ #  $adStudents = Get-ADUser @adStuParams | Where-Object {
+ #   ($_.samAccountName -match "[a-zA-Z][a-zA-Z]\d{5,6}") -and ($_.employeeId -match "\d{5,6}") }
+ #  Write-Verbose "Comparing Aeries and AD results."
+ #  # This section greatly reduces the number of process entries as we only want results for objects that are not currently
+ #  # in the 'OU=Students,OU=Users,OU=Domain_Root,DC=chico,DC=usd' OU
+ #  $compareParams = @{
+ #   ReferenceObject  = $Results
+ #   DifferenceObject = $adStudents
+ #   Debug            = $false
+ #  }
+ #  $diffObjects = Compare-Object @compareParams -Property employeeId, departmentNumber, gecos
+ #  $idString = $null
+ #  # need some descriptive comment here of the below logic
+ #  ($diffObjects.Where( { $_.sideindicator -eq "<=" })).employeeId.foreach( { $idString += ("{0}," -f $_) })
+ #  $idString = " ({0})" -f ($idString).Substring(0, $idString.Length - 1) # Trim the trailing comma
+ #  if ($idString) {
+ #   $diffQuery = (Get-Content .\sql\search-ids.sql -Raw) + $idString # Build a query just for the subset of ids
+ #  }
+ #  else { continue } # if idString array is empty then skip this loop.
+ #  $results = Invoke-SQLCommand @dbParams -Query $diffQuery
+ # }
+ <# ================================
+             Process Results
+    ================================  #>
  foreach ( $row in $results ) {
   Write-Debug ("Process {0}" -f $row.employeeId)
   Write-Verbose  ($row | Out-String)
@@ -277,7 +283,8 @@ do {
    New-ADuser @newUserParams -WhatIf:$WhatIf # Create Simple User Object
    if ($userObj = queryUser $empId) {
     # I keep removing this and then I keep putting it back. Just leave it, dude.
-    Write-Verbose "$samid,New User - Syncing AD"; Start-Sleep 10 # wait while AD replicates
+    Write-Verbose "$samid,New User - Syncing AD"
+    Start-Sleep 2 # wait while AD replicates
     UserTasks $userObj.ObjectGUID
    }
    # End  Check New User Object

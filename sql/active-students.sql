@@ -5,8 +5,9 @@ SELECT
  STU.BD as dob,
  STU.SC as departmentNumber,
  STU.U12 as GSuiteStatus,
- STU.GR as grade
- 
+ STU.GR as grade,
+ STU.GR as gecos,
+ CONCAT(STU.ID,STU.SC,STU.GR) AS stuRefID
 FROM STU
 WHERE 
  ( (STU.del = 0) OR (STU.del IS NULL) ) AND ( STU.tg = ' ' )

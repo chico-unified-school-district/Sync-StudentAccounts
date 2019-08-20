@@ -91,11 +91,12 @@ $year = "{0:yyyy}" -f $(if ((Get-Date -f MM) -gt 6) { (Get-Date).AddYears(1) } e
 $userAccountExpireDate = Get-Date "August 18 $year"
 
 # Imported Functions
-. '.\lib\Add-Log.ps1'           # Format log strings
-. '.\lib\Create-GSuiteURL.ps1'  # Create personal GSuite link in users's docs folder.
-. '.\lib\Create-HomeDir.ps1'     # Create and configure the user's home directory
-. '.\lib\Random-Password.ps1'   # Create random initial password
-. '.\lib\Invoke-SQLCommand.ps1 '# Useful function for querying SQL and returning results
+. .\lib\Add-Log.ps1           # Format log strings
+. .\lib\Compare-Object2.ps1
+. .\lib\Create-GSuiteURL.ps1  # Create personal GSuite link in users's docs folder.
+. .\lib\Create-HomeDir.ps1    # Create and configure the user's home directory
+. .\lib\Random-Password.ps1   # Create random initial password
+. .\lib\Invoke-SQLCommand.ps1 # Useful function for querying SQL and returning results
 
 $adProperties = 'whenCreated', 'employeeId', 'homepage', 'memberof', 'departmentNumber'
 function queryUser ($empId) {
@@ -224,35 +225,35 @@ do {
        Retrieve and compare Aeries and AD
     =========================================== #> 
  $results = Invoke-SQLCommand @dbParams -Query $query
- # if ( !$PermId ) {
- #  $adStuParams = @{
- #   filter     = { (employeeId -like "*") -and (homepage -like "*@chicousd.net") }
- #   properties = 'employeeId', 'departmentNumber', 'gecos'
- #   SearchBase = 'OU=Students,OU=Users,OU=Domain_Root,DC=chico,DC=usd'
- #  }
- #  Write-Verbose "Querying Active Directory for current student accounts"
- #  # "[a-zA-Z][a-zA-Z]\d{5,6}" matches out current naming standard FN+LN+PermID
- #  $adStudents = Get-ADUser @adStuParams | Where-Object {
- #   ($_.samAccountName -match "[a-zA-Z][a-zA-Z]\d{5,6}") -and ($_.employeeId -match "\d{5,6}") }
- #  Write-Verbose "Comparing Aeries and AD results."
- #  # This section greatly reduces the number of process entries as we only want results for objects that are not currently
- #  # in the 'OU=Students,OU=Users,OU=Domain_Root,DC=chico,DC=usd' OU
- #  $compareParams = @{
- #   ReferenceObject  = $Results
- #   DifferenceObject = $adStudents
- #   Debug            = $false
- #  }
- #  $diffObjects = Compare-Object @compareParams -Property employeeId, departmentNumber, gecos
- #  $idString = $null
- #  # need some descriptive comment here of the below logic
- #  ($diffObjects.Where( { $_.sideindicator -eq "<=" })).employeeId.foreach( { $idString += ("{0}," -f $_) })
- #  $idString = " ({0})" -f ($idString).Substring(0, $idString.Length - 1) # Trim the trailing comma
- #  if ($idString) {
- #   $diffQuery = (Get-Content .\sql\search-ids.sql -Raw) + $idString # Build a query just for the subset of ids
- #  }
- #  else { continue } # if idString array is empty then skip this loop.
- #  $results = Invoke-SQLCommand @dbParams -Query $diffQuery
- # }
+ if ( !$PermId ) {
+  $adStuParams = @{
+   filter     = { (employeeId -like "*") -and (homepage -like "*@chicousd.net") }
+   properties = 'employeeId', 'departmentNumber', 'gecos'
+   SearchBase = 'OU=Students,OU=Users,OU=Domain_Root,DC=chico,DC=usd'
+  }
+  Write-Verbose "Querying Active Directory for current student accounts"
+  # "[a-zA-Z][a-zA-Z]\d{5,6}" matches out current naming standard FN+LN+PermID
+  $adStudents = Get-ADUser @adStuParams | Where-Object {
+   ($_.samAccountName -match "[a-zA-Z][a-zA-Z]\d{5,6}") -and ($_.employeeId -match "\d{5,6}") }
+  Write-Verbose "Comparing Aeries and AD results."
+  # This section greatly reduces the number of process entries as we only want results for objects that are not currently
+  # in the 'OU=Students,OU=Users,OU=Domain_Root,DC=chico,DC=usd' OU
+  $compareParams = @{
+   ReferenceObject  = $Results
+   DifferenceObject = $adStudents
+   Debug            = $false
+  }
+  $diffObjects = Compare-Object2 @compareParams -Property employeeId, departmentNumber, gecos
+  $idString = $null
+  # need some descriptive comment here of the below logic
+  ($diffObjects.Where( { $_.sideindicator -eq "<=" })).employeeId.foreach( { $idString += ("{0}," -f $_) })
+  $idString = " ({0})" -f ($idString).Substring(0, $idString.Length - 1) # Trim the trailing comma
+  if ($idString) {
+   $diffQuery = (Get-Content .\sql\search-ids.sql -Raw) + $idString # Build a query just for the subset of ids
+  }
+  else { continue } # if idString array is empty then skip this loop.
+  $results = Invoke-SQLCommand @dbParams -Query $diffQuery
+ }
  <# ================================
              Process Results
     ================================  #>

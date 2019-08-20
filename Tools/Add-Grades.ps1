@@ -47,16 +47,15 @@ Param(
 
 Clear-Host ; $error.clear() # Clear screen and error log.
 
-# This json table is used to match site parameters to database results
-$lookUpTable = Get-Content -Path .\json\lookupTable.json -Raw | ConvertFrom-Json
-
 # Imported Functions
 . '.\lib\Add-Log.ps1'           # Format log strings
 . '.\lib\Create-HomeDir.ps1'     # Create and configure the user's home directory
 . '.\lib\Invoke-SQLCommand.ps1 '# Useful function for querying SQL and returning results
 
 $studentOU = 'OU=Students,OU=Users,OU=Domain_Root,DC=chico,DC=usd'
-$studentADObjs = Get-AdUser -Filter { employeeid -like "*" -and homepage -like "*@*" } -Properties employeeid, gecos -SearchBase $studentOU
+Add-Log info 'Getting student objects'
+$studentADObjs = Get-AdUser -Filter { employeeid -like "*" -and homepage -like "*@*" } -Properties employeeid, gecos `
+ -SearchBase $studentOU | Where-Object { $_.gecos -isnot 'Int' }
 
 # Student Information System (sis) DB Connection Info
 $dbParams = @{
@@ -67,16 +66,13 @@ $dbParams = @{
 $query = Get-Content -Path .\sql\active-students.sql -Raw
 $results = Invoke-SQLCommand @dbParams -Query $query
 
-foreach ( $row in $results ) {
+foreach ( $user in $studentADObjs ) {
  # $samid = $row.givenName.SubString(0, 1) + $row.sn.SubString(0, 1) + $row.employeeId
- $userObj = $studentADObjs.Where( { $_.employeeId -eq $row.employeeId })
- $samid = $userObj.samAccountName
- $site = $lookupTable | Where-Object { $_.SC -eq $row.departmentNumber } # Query the site table for a match
+ $grade = $results.Where( { [int]$_.employeeId -eq [int]$user.employeeId }).grade
+ $samid = $user.samAccountName
 
- Write-Verbose ("{0} | {1} {2} | {3} | {4}" -f $samid, $row.givenName, $row.sn, $site.SiteName, $row.grade)
- try { Set-ADUser -identity $userObj.ObjectGUID -Add @{ gecos = $row.grade } -WhatIf:$WhatIf 
+ Write-Verbose ("{0} {1}" -f $samid, $grade)
+ try { Set-ADUser -identity $user.ObjectGUID -Add @{ gecos = $grade } -WhatIf:$WhatIf 
  }
- catch { Add-Log error ("{0} | {1} {2} | {3} | {4}" -f $samid, $row.givenName, $row.sn, $site.SiteName, $row.grade) }
+ catch { Add-Log error ("{0} {1} " -f $samid, $row.grade) }
 } # End Parse Database Query Results
-
-Add-Log script "Tearing down PS Sessions..."

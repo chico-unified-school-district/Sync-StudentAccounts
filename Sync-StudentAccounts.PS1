@@ -298,12 +298,21 @@ do {
    }
    if ($userObj.name -ne "$samid") {
     Add-Log Rename ("{0} => {1}" -f $userObj.name, $samid) $WhatIf
-    Rename-ADObject -Identity $userObj.ObjectGUID -NewName $samid -WhatIf:$WhatIf # fixes object name
+    Rename-ADObject -Identity $userObj.ObjectGUID -NewName $samid -WhatIf:$WhatIf # fixes object name whne updated from Aeries
    }
-   if ( ($userObj.departmentNumber) -and ([int]$userObj.departmentNumber[0] -lt [int]$row.departmentNumber) ) {
-    Write-Verbose ("{0} | Lower departmentNumber preferred. Skipping" -f $userObj.samAccountName)
-    continue
-   }
+   # Skip operations for students assigned to specific school sites
+   # if ($userObj.departmentNumber) {
+   #  switch ([int]$userObj.departmentNumber[0]) {
+   #   { $_ -in 0} { 
+   #    ('{0},{1} | Excluded departmentNumber detected. Skipping' -f $userObj.samAccountName)
+   #    continue 
+   #   }
+   #  }
+   # }
+   # if ( ($userObj.departmentNumber) -and ([int]$userObj.departmentNumber[0] -lt [int]$row.departmentNumber) ) {
+   #  Write-Verbose ("{0} | Excluded departmentNumber detected. Skipping" -f $userObj.samAccountName)
+   #  continue
+   # }
    UserTasks $userObj.ObjectGUID
   }
   elseif ($UserTasks) { UserTasks $userObj.ObjectGUID }

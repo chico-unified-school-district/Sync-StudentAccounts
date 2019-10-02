@@ -94,6 +94,7 @@ $userAccountExpireDate = Get-Date "August 18 $year"
 . .\lib\Add-Log.ps1           # Format log strings
 . .\lib\Compare-Object2.ps1
 . .\lib\Create-GSuiteURL.ps1  # Create personal GSuite link in users's docs folder.
+. .\lib\Create-HomeShortCut.ps1 # Create Shortcut to old H drive
 . .\lib\Create-HomeDir.ps1    # Create and configure the user's home directory
 . .\lib\Random-Password.ps1   # Create random initial password
 . .\lib\Invoke-SQLCommand.ps1 # Useful function for querying SQL and returning results
@@ -150,9 +151,10 @@ function userTasks {
   departmentNumber           = $row.DepartmentNumber
   gecos                      = $row.grade
  }
- Add-Log userparams $samid $WhatIf
+ # Add-Log userparams $samid $WhatIf
  Set-ADUser -Identity $userGuid -Replace $userAttributes -Confirm:$False -WhatIf:$WhatIf
 
+ # Confirm target Org Unit
  if ([adsi]::Exists("LDAP://$path")) {
   Add-Log move ('{0},{1}' -f $samid, $path.Split(",")[0] + ',' + $path.Split(",")[1]) $WhatIf
   Move-ADObject -Identity $userGuid -TargetPath $path -WhatIf:$WhatIf
@@ -162,12 +164,12 @@ function userTasks {
  # Clear from Old Groups
  $oldGroups = $userObj.memberof
  if ( $oldGroups ) { 
-  Add-Log groupremove $samid $WhatIf
+  # Add-Log groupremove $samid $WhatIf
   Remove-ADPrincipalGroupMembership -Identity $userGuid -MemberOf $oldGroups -Confirm:$False
  }
  # Add to New Groups
  $newGroups = $site.StudentGroup, $site.FilterGroup
- Add-Log groupadd $samid $WhatIf
+ # Add-Log groupadd $samid $WhatIf
  Add-ADPrincipalGroupMembership -Identity $userGuid -MemberOf $newGroups 
 
  if ( $site.FileServer ) {
@@ -281,11 +283,12 @@ do {
     employeeId      = $empId # Foreign DB key
     Path            = 'OU=Disabled_Student_Objects,OU=Disabled_User_Objects,DC=chico,DC=usd'
    }
+   Add-Log NewUser $samid $WhatIf
    New-ADuser @newUserParams -WhatIf:$WhatIf # Create Simple User Object
    if ($userObj = queryUser $empId) {
     # I keep removing this and then I keep putting it back. Just leave it, dude.
     Write-Verbose "$samid,New User - Syncing AD"
-    Start-Sleep 2 # wait while AD replicates
+    Start-Sleep 3 # wait while AD replicates
     UserTasks $userObj.ObjectGUID
    }
    # End  Check New User Object
@@ -301,18 +304,61 @@ do {
     Rename-ADObject -Identity $userObj.ObjectGUID -NewName $samid -WhatIf:$WhatIf # fixes object name whne updated from Aeries
    }
    # Skip operations for students assigned to specific school sites
+   # Check number of entries
+   $entries = $results.where( { $_.employeeId -match $userObj.employeeId })
+   # Skip site if another site is detected
+   $skipSiteCodes = 3, 8, 9, 10, 11, 91
+   if ($entries.count -gt 1) {
+    # $entries
+    # Read-Host 'FERRRRRRRFFFFFFFFFFFFFFFFFNAGELS!!!'
+    if ($skipSiteCodes -match [int]$row.departmentNumber) {
+     Write-Verbose ('{0} {1} Alternate Site detected. Skipping' -f $samid, $row.departmentNumber)
+     continue
+    }
+   }
    # if ($userObj.departmentNumber) {
    #  switch ([int]$userObj.departmentNumber[0]) {
-   #   { $_ -in 0} { 
-   #    ('{0},{1} | Excluded departmentNumber detected. Skipping' -f $userObj.samAccountName)
+   #   { $userObj.departmentNumber -in $skipSiteCodes } { 
+   #    Write-Verbose ('{0},{1} | Excluded departmentNumber detected. Skipping' -f $userObj.samAccountName, $userObj.departmentNumber[0])
    #    continue 
    #   }
+   #   default { Write-Verbose ('{0},{1} Site OK' -f $userObj.samAccountName, $userObj.departmentNumber[0]) }
    #  }
    # }
-   # if ( ($userObj.departmentNumber) -and ([int]$userObj.departmentNumber[0] -lt [int]$row.departmentNumber) ) {
-   #  Write-Verbose ("{0} | Excluded departmentNumber detected. Skipping" -f $userObj.samAccountName)
-   #  continue
-   # }
+   # Check for current H drive data and prepare to migrate
+   # $userObj.DistinguishedName
+   $oldSite = $lookupTable | Where-Object { $_.SC -eq $userObj.departmentNumber }
+   
+   # Begin File Recovery 
+   $oldHomePath = '\\{0}\{1}\{2}\Documents' -f $oldSite.FileServer, $oldSite.ShareName, $samid
+   if (Test-Path -Path $oldHomePath) {
+    try {
+     $dataSize = ([math]::Round((Get-ChildItem $oldHomePath -Recurse | Measure-Object -Property Length -Sum -ErrorAction Stop).Sum / 1KB))
+     # "{0} KB" -f $dataSize
+     if ($dataSize -gt 0 ) {
+      1
+      # Get-ChildItem -Path $oldHomePath
+      $createHomeShortCutParams = @{
+       FileServer       = $site.FileServer
+       Sharename        = $site.ShareName
+       samid            = $samid
+       ServerCredential = $FileServerCredential
+       OldHomePath      = $oldHomePath
+       WhatIf           = $WhatIf
+      }
+      Create-HomeShortCut @createHomeShortCutParams
+      2
+      # Read-Host 'BLAH!!!!!'
+     }
+    }
+    catch {
+     Get-ChildItem -Path $oldHomePath 
+     Write-Verbose ('No data on {0}' -f $oldHomePath )
+    }
+    # Read-Host 'End Old H drive Shortcut creation'
+    # End File Recovery
+   }
+   else { Write-Verbose ('{0} path not found.' -f $oldHomePath) }
    UserTasks $userObj.ObjectGUID
   }
   elseif ($UserTasks) { UserTasks $userObj.ObjectGUID }

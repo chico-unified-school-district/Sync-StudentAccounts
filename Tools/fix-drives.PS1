@@ -1,38 +1,9 @@
 ﻿#Requires -Version 3.0
 <#
- .Synopsis
-  The process queries the Student Information System and uses the results to generate or modify current
-  Active Directory accounts. Here is a list of what the account creates:
-  - AD user accounts
-  - Home Folders
-  - GSuite accounts via an outside syncing process
-  - GSuite shortcuts placed in the Users' home folders
-  - SIS database updates for student GSuite email accounts
-  This script relies upon several external scripts
  .DESCRIPTION
-  This script queries the SIS Database
-  and creates Student Active Directory User accounts and home directories from the results.
- .EXAMPLE
-  Sync-StudentAccounts.ps1 -WhatIf -Verbose
-  Runs a TEST Process on all newely added users with verbose output - No changes are made.
- .INPUTS
- .OUTPUTS
-  AD Accounts
-  AD Group Updates
-  SIS database updates
-  GSuite Account Set by homepage AD Obj Attribute and GADS
-  Home Directories
-  Web Shortcut
- .NOTES
-  $Database must be updated yearly.
-  A DB account with permission to query the Aeries SIS DB.
-   and update the STU.NID field.
-  The account running the script must have permissions to:
-  Add/Move/Modify AD UserObjects
-  Modifies Groups Memberships on AD Group Objects
-  Creates folders and set permissions on target Home folders via the Windows share name.
-  -WhatIf Support Added
+  The process queries the Student Information System and uses the results to fix users' home drive permissions
 #>
+
 [cmdletbinding()]
 Param(
  [Parameter(Mandatory = $true)]

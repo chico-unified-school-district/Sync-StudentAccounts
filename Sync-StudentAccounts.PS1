@@ -1,5 +1,4 @@
-﻿#Requires -Version 3.0
-<#
+﻿<#
  .Synopsis
   The process queries the Student Information System and uses the results to generate or modify current
   Active Directory accounts. Here is a list of what the account creates:
@@ -33,6 +32,8 @@
   Creates folders and set permissions on target Home folders via the Windows share name.
   -WhatIf Support Added
 #>
+#Requires -Version 3.0
+
 [cmdletbinding()]
 Param(
  [Parameter(Mandatory = $True)]

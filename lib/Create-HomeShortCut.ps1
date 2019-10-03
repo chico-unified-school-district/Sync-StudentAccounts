@@ -37,28 +37,36 @@ function Create-HomeShortCut {
   # '{1} - Unable to map path' -f $OldHomePath | Out-file .\oldhome2.txt -Append
   continue
  }
-
- if ($WhatIf) { '[TEST],{0},{1},{2}' -f $samid, "\\$FileServer\$ShareName", $OldHomePath }
- else {
-  # Begin Create Shortcut
-  if (!(Test-Path -Path "share:\Old H-Drive $samid.lnk")) {
-   Write-Verbose "Creating Old H Drive shortcut for $samid on $FileServer."
-   $TargetFile = "$OldHomePath"
-   $ShortcutFile = $fileName
-   $WScriptShell = New-Object -ComObject WScript.Shell
-   $Shortcut = $WScriptShell.CreateShortcut($ShortcutFile)
-   $Shortcut.TargetPath = $TargetFile
-   if ($WhatIf) { $Shortcut }
-   else { $Shortcut.Save() }
-   $fullPath = $Shortcut.FullName
-   Move-Item -Path $fullPath -Destination TempDrive: -Confirm:$false -Force
-
-   if (Test-Path -Path "TempDrive:\$fileName") {
-    "Shortcut to $OldHomePath created at $homeDir"
+ try {
+  $dataSize = ([math]::Round((Get-ChildItem TempDrive: -Recurse | Measure-Object -Property Length -Sum -ErrorAction Stop).Sum / 1KB))
+  # "{0} KB" -f $dataSize
+ }
+ catch {
+  Write-Verbose ('No data on {0}' -f $oldHomePath )
+ }
+ if ($dataSize -gt 0 ) {
+  if ($WhatIf) { '[TEST],{0},{1},{2}' -f $samid, "\\$FileServer\$ShareName", $OldHomePath }
+  else {
+   # Begin Create Shortcut
+   if (!(Test-Path -Path "share:\Old H-Drive $samid.lnk")) {
+    Write-Verbose "Creating Old H Drive shortcut for $samid on $FileServer."
+    $TargetFile = "$OldHomePath"
+    $ShortcutFile = $fileName
+    $WScriptShell = New-Object -ComObject WScript.Shell
+    $Shortcut = $WScriptShell.CreateShortcut($ShortcutFile)
+    $Shortcut.TargetPath = $TargetFile
+    if ($WhatIf) { $Shortcut }
+    else { $Shortcut.Save() }
+    $fullPath = $Shortcut.FullName
+    Move-Item -Path $fullPath -Destination TempDrive: -Confirm:$false -Force
+  
+    if (Test-Path -Path "TempDrive:\$fileName") {
+     "Shortcut to $OldHomePath created at $homeDir"
+    }
+    else { "ERROR,{0},{1} Shortcut not created" -f $samid, $FileServer }
    }
-   else { "ERROR,{0},{1} Shortcut not created" -f $samid, $FileServer }
-  }
+  } # End Create Shortcut
   Write-Verbose "Removing PSDrive"
   Remove-PSDrive -Name TempDrive -Confirm:$false -Force | Out-Null
- } # End Create Shortcut
+ }
 } # End Function

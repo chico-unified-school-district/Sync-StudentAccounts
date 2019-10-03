@@ -223,9 +223,9 @@ else { $query = Get-Content -Path .\sql\active-students.sql -Raw }
 
 # Begin Major Loop
 do {
- <# ===========================================
-       Retrieve and compare Aeries and AD
-    =========================================== #> 
+ ###########################
+ #  Compare Aeries and AD  #
+ ###########################
  $results = Invoke-SQLCommand @dbParams -Query $query
  if ( !$PermId ) {
   $adStuParams = @{
@@ -256,26 +256,27 @@ do {
   else { continue } # if idString array is empty then skip this loop.
   $results = Invoke-SQLCommand @dbParams -Query $diffQuery
  }
- <# ================================
-             Process Results
-    ================================  #>
+ ############################
+ #  Process Aeries Results  #
+ ############################
  foreach ( $row in $results ) {
   Write-Debug ("Process {0}" -f $row.employeeId)
   Write-Verbose  ($row | Out-String)
   $samid = $row.givenName.SubString(0, 1) + $row.sn.SubString(0, 1) + $row.employeeId
   $empId = $row.employeeId
-  # $userRows = $diffResults.Where({})
-  # $standardPW = [string](Get-date $row.dob -Format yyMMdd)
-  # We never use this password as it is updated by another script shortly after account creation.
+  # We never use this ($secureInitialPW) password 
+  # as it is updated by another script shortly after account creation.
   $secureInitialPW = (ConvertTo-SecureString (Random-Password) -AsPlainText -force)
   $gmail = "$samid@ChicoUSD.Net" # Set the CUSD GMail address
   $site = $lookupTable | Where-Object { $_.SC -eq $row.departmentNumber } # Query the site table for a match
   $path = setPath $row.grade $site.path $row.departmentNumber # Build final target OU path for object
   Write-Verbose ("{0} | {1} {2} | {3}" -f $samid, $row.givenName, $row.sn, $site.SiteName)
   $userObj = queryUser $empId
-  # New User
+
   if ( !$userObj ) {
-   # Begin Check New User Object
+   #####################
+   #  Create New User  #
+   #####################
    Add-Log New-ADUSer ('{0},{1}' -f $samid, $site.SiteName) $WhatIf
    $newUserParams = @{
     Name            = $samid
@@ -288,13 +289,14 @@ do {
    if ($userObj = queryUser $empId) {
     # I keep removing this and then I keep putting it back. Just leave it, dude.
     Write-Verbose "$samid,New User - Syncing AD"
-    Start-Sleep 3 # wait while AD replicates
+    Start-Sleep 2 # wait while AD replicates
     UserTasks $userObj.ObjectGUID
    }
-   # End  Check New User Object
   }
+  ######################
+  #  Move User Object  #
+  ######################
   elseif ( $userObj.DistinguishedName -notlike "*$path" ) {
-   # Begins Move User Object
    # Check GSuite account and unsuspend if needed
    if ((.$gam info user $samid@chicousd.net) -match 'Account Suspended: True') {
     (.$gam update user $samid@chicousd.net suspended off) *>$null
@@ -305,62 +307,34 @@ do {
    }
    # Skip operations for students assigned to specific school sites
    # Check number of entries
-   $entries = $results.where( { $_.employeeId -match $userObj.employeeId })
+   $entries = $results | Where-Object ( { $_.employeeId -match $userObj.employeeId } )
    # Skip site if another site is detected
    $skipSiteCodes = 3, 8, 9, 10, 11, 91
    if ($entries.count -gt 1) {
-    # $entries
-    # Read-Host 'FERRRRRRRFFFFFFFFFFFFFFFFFNAGELS!!!'
     if ($skipSiteCodes -match [int]$row.departmentNumber) {
      Write-Verbose ('{0} {1} Alternate Site detected. Skipping' -f $samid, $row.departmentNumber)
      continue
     }
    }
-   # if ($userObj.departmentNumber) {
-   #  switch ([int]$userObj.departmentNumber[0]) {
-   #   { $userObj.departmentNumber -in $skipSiteCodes } { 
-   #    Write-Verbose ('{0},{1} | Excluded departmentNumber detected. Skipping' -f $userObj.samAccountName, $userObj.departmentNumber[0])
-   #    continue 
-   #   }
-   #   default { Write-Verbose ('{0},{1} Site OK' -f $userObj.samAccountName, $userObj.departmentNumber[0]) }
-   #  }
-   # }
-   # Check for current H drive data and prepare to migrate
-   # $userObj.DistinguishedName
    $oldSite = $lookupTable | Where-Object { $_.SC -eq $userObj.departmentNumber }
-   
    # Begin File Recovery 
    $oldHomePath = '\\{0}\{1}\{2}\Documents' -f $oldSite.FileServer, $oldSite.ShareName, $samid
-   if (Test-Path -Path $oldHomePath) {
-    try {
-     $dataSize = ([math]::Round((Get-ChildItem $oldHomePath -Recurse | Measure-Object -Property Length -Sum -ErrorAction Stop).Sum / 1KB))
-     # "{0} KB" -f $dataSize
-     if ($dataSize -gt 0 ) {
-      1
-      # Get-ChildItem -Path $oldHomePath
-      $createHomeShortCutParams = @{
-       FileServer       = $site.FileServer
-       Sharename        = $site.ShareName
-       samid            = $samid
-       ServerCredential = $FileServerCredential
-       OldHomePath      = $oldHomePath
-       WhatIf           = $WhatIf
-      }
-      Create-HomeShortCut @createHomeShortCutParams
-      2
-      # Read-Host 'BLAH!!!!!'
-     }
+   if ($oldSite.FileServer) {
+    # Get-ChildItem -Path $oldHomePath
+    $createHomeShortCutParams = @{
+     FileServer       = $site.FileServer
+     Sharename        = $site.ShareName
+     samid            = $samid
+     ServerCredential = $FileServerCredential
+     OldHomePath      = $oldHomePath
+     WhatIf           = $WhatIf
     }
-    catch {
-     Get-ChildItem -Path $oldHomePath 
-     Write-Verbose ('No data on {0}' -f $oldHomePath )
-    }
-    # Read-Host 'End Old H drive Shortcut creation'
-    # End File Recovery
+    Create-HomeShortCut @createHomeShortCutParams
    }
-   else { Write-Verbose ('{0} path not found.' -f $oldHomePath) }
+   # End File Recovery
    UserTasks $userObj.ObjectGUID
-  }
+  } # End Move User Object
+
   elseif ($UserTasks) { UserTasks $userObj.ObjectGUID }
   Write-Verbose "====== End Processing $samid ======"
  } # End Parse Database Query Results

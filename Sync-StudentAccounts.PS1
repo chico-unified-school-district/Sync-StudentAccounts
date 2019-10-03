@@ -318,8 +318,8 @@ do {
    }
    $oldSite = $lookupTable | Where-Object { $_.SC -eq $userObj.departmentNumber }
    # Begin File Recovery 
-   $oldHomePath = '\\{0}\{1}\{2}\Documents' -f $oldSite.FileServer, $oldSite.ShareName, $samid
    if ($oldSite.FileServer) {
+    $oldHomePath = '\\{0}\{1}\{2}\Documents' -f $oldSite.FileServer, $oldSite.ShareName, $samid
     # Get-ChildItem -Path $oldHomePath
     $createHomeShortCutParams = @{
      FileServer       = $site.FileServer

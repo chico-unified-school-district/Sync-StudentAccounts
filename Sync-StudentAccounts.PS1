@@ -291,7 +291,6 @@ do {
     employeeId      = $empId # Foreign DB key
     Path            = 'OU=Disabled_Student_Objects,OU=Disabled_User_Objects,DC=chico,DC=usd'
    }
-   Add-Log NewUser $samid $WhatIf
    New-ADuser @newUserParams -WhatIf:$WhatIf # Create Simple User Object
    if ($userObj = queryUser $empId) {
     # I keep removing this and then I keep putting it back. Just leave it, dude.

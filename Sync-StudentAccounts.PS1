@@ -42,27 +42,33 @@ Param(
  [string]$DomainController,
  # PSSession to Domain Controller and Use Active Directory CMDLETS  
  [Parameter(Mandatory = $True)]
- [Alias('ADCred')]
+ [Alias('ADCred', 'ac')]
  [System.Management.Automation.PSCredential]$ADCredential,
  [Parameter(Mandatory = $True)]
- [Alias('FSCred')]
+ [Alias('FSCred', 'fc')]
  [System.Management.Automation.PSCredential]$FileServerCredential,
  [Parameter(Mandatory = $true)]
  [ValidateScript( { Test-Connection -ComputerName $_ -Quiet -Count 1 })]
+ [Alias('ss')]
  [string]$SISServer,
  [Parameter(Mandatory = $true)]
+ [Alias('sd')]
  [string]$SISDatabase,
  [Parameter(Mandatory = $True)]
+ [Alias('sc')]
  [System.Management.Automation.PSCredential]$SISCredential,
  [Parameter(Mandatory = $false)]
+ [Alias('ol')]
  [SWITCH]$OneLoop,
  # Include PermID to process one user account
  [Parameter(Mandatory = $false)]
+ [Alias('id', 'pid', 'pi')]
  [int]$PermId,
  # Run UserTasks for all active student accounts 
  [Parameter(Mandatory = $false)]
- [Alias('Tasks')]
+ [Alias('ut')]
  [SWITCH]$UserTasks,
+ [Alias('wi')]
  [switch]$WhatIf
 )
 

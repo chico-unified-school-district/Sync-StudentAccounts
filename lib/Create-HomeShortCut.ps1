@@ -27,9 +27,10 @@ function Create-HomeShortCut {
  $oldServerName = $OldHomePath.Split('\')[2]
  $fileName = "Old H-Drive - $oldServerName.lnk"
  $homeDir = "\\$FileServer\$ShareName\$samid\Documents"
+
  try {
   Write-Verbose "Adding PSDrive"
-  New-PSDrive -name TempDrive -root $homeDir -PSProvider FileSystem -Credential $ServerCredential | Out-Null
+  New-PSDrive -name TempDrive -root $homeDir -PSProvider FileSystem -Credential $ServerCredential -ErrorAction STOP | Out-Null
   # Get-PSDrive -Name TempDrive
  }
  catch {
@@ -37,13 +38,15 @@ function Create-HomeShortCut {
   # '{1} - Unable to map path' -f $OldHomePath | Out-file .\oldhome2.txt -Append
   continue
  }
+
  try {
-  $dataSize = ([math]::Round((Get-ChildItem TempDrive: -Recurse | Measure-Object -Property Length -Sum -ErrorAction Stop).Sum / 1KB))
+  $dataSize = ([math]::Round((Get-ChildItem TempDrive: -Recurse -ErrorAction STOP | Measure-Object -Property Length -Sum -ErrorAction Stop).Sum / 1KB))
   # "{0} KB" -f $dataSize
  }
  catch {
   Write-Verbose ('No data on {0}' -f $oldHomePath )
  }
+
  if ($dataSize -gt 0 ) {
   if ($WhatIf) { '[TEST],{0},{1},{2}' -f $samid, "\\$FileServer\$ShareName", $OldHomePath }
   else {

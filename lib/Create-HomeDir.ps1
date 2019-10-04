@@ -35,6 +35,7 @@ function Create-HomeDir {
    New-Item -Path $docsPath -ItemType Directory -Confirm:$false | Out-Null
    # Remove Inheritance and add users and groups
    ICACLS $homePath /inheritance:r /grant "Chico\CreateHomeDir:(OI)(CI)(F)" "BUILTIN\Administrators:(OI)(CI)(F)" | Out-Null
+   Start-Sleep 5 # A delay is needed to ensure objects can be mapped to ACLs properly
    ICACLS $homePath /grant "SYSTEM:(OI)(CI)(F)" "chico\veritas:(OI)(CI)(M)" "Chico\Domain Admins:(OI)(CI)(F)" | Out-Null
    ICACLS $homePath /grant "${StaffGroup}:(OI)(CI)(M)" "Chico\IS-All:(OI)(CI)(M)" | Out-Null
    ICACLS $homePath /grant "${samid}:(OI)(CI)(RX)" | Out-Null

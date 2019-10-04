@@ -290,7 +290,7 @@ do {
    if ($userObj = queryUser $empId) {
     # I keep removing this and then I keep putting it back. Just leave it, dude.
     Write-Verbose "$samid,New User - Syncing AD"
-    Start-Sleep 2 # wait while AD replicates
+    Start-Sleep 4 # wait while AD replicates
     UserTasks $userObj.ObjectGUID
    }
   }

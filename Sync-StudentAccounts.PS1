@@ -98,13 +98,13 @@ $year = "{0:yyyy}" -f $(if ((Get-Date -f MM) -gt 6) { (Get-Date).AddYears(1) } e
 $userAccountExpireDate = Get-Date "August 18 $year"
 
 # Imported Functions
-. .\lib\Add-Log.ps1           # Format log strings
-. .\lib\Compare-Object2.ps1
-. .\lib\Create-GSuiteURL.ps1  # Create personal GSuite link in users's docs folder.
-. .\lib\Create-HomeShortCut.ps1 # Create Shortcut to old H drive
-. .\lib\Create-HomeDir.ps1    # Create and configure the user's home directory
-. .\lib\Random-Password.ps1   # Create random initial password
-. .\lib\Invoke-SQLCommand.ps1 # Useful function for querying SQL and returning results
+. .\lib\Add-Log.ps1             # Format log strings
+. .\lib\Compare-Object2.ps1     # Faster Compare Function
+. .\lib\Create-GSuiteURL.ps1    # Create personal GSuite link in users's docs folder.
+# . .\lib\Create-HomeShortCut.ps1 # Create Shortcut to old H drive
+. .\lib\Create-HomeDir.ps1      # Create and configure the user's home directory
+. .\lib\Random-Password.ps1     # Create random initial password
+. .\lib\Invoke-SQLCommand.ps1   # Useful function for querying SQL and returning results
 
 $adProperties = 'whenCreated', 'employeeId', 'homepage', 'memberof', 'departmentNumber'
 function queryUser ($empId) {
@@ -296,7 +296,6 @@ do {
     # I keep removing this and then I keep putting it back. Just leave it, dude.
     Write-Verbose "$samid,New User - Syncing AD"
     Start-Sleep 4 # wait while AD replicates
-    UserTasks $userObj.ObjectGUID
    }
   }
   ######################
@@ -322,21 +321,21 @@ do {
      continue
     }
    }
-   $oldSite = $lookupTable | Where-Object { $_.SC -eq $userObj.departmentNumber }
-   # Begin File Recovery 
-   if ($oldSite.FileServer) {
-    $oldHomePath = '\\{0}\{1}\{2}\Documents' -f $oldSite.FileServer, $oldSite.ShareName, $samid
-    # Get-ChildItem -Path $oldHomePath
-    $createHomeShortCutParams = @{
-     FileServer       = $site.FileServer
-     Sharename        = $site.ShareName
-     samid            = $samid
-     ServerCredential = $FileServerCredential
-     OldHomePath      = $oldHomePath
-     WhatIf           = $WhatIf
-    }
-    Create-HomeShortCut @createHomeShortCutParams
-   }
+   # Begin File Recovery
+   # $oldSite = $lookupTable | Where-Object { $_.SC -eq $userObj.departmentNumber }
+   # if ($oldSite.FileServer) {
+   #  $oldHomePath = '\\{0}\{1}\{2}\Documents' -f $oldSite.FileServer, $oldSite.ShareName, $samid
+   #  # Get-ChildItem -Path $oldHomePath
+   #  $createHomeShortCutParams = @{
+   #   FileServer       = $site.FileServer
+   #   Sharename        = $site.ShareName
+   #   samid            = $samid
+   #   ServerCredential = $FileServerCredential
+   #   OldHomePath      = $oldHomePath
+   #   WhatIf           = $WhatIf
+   #  }
+   #  Create-HomeShortCut @createHomeShortCutParams
+   # }
    # End File Recovery
    UserTasks $userObj.ObjectGUID
   } # End Move User Object

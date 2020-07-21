@@ -307,7 +307,6 @@ do {
   ######################
   elseif ( $userObj.DistinguishedName -notlike "*$path" ) {
    # Check GSuite account and unsuspend if needed
-   "WAHHHHHHHHH?????? 11111"
    if ((.$gam info user $samid@chicousd.net) -match 'Account Suspended: True') {
     (.$gam update user $samid@chicousd.net suspended off) *>$null
    }

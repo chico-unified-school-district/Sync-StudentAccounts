@@ -72,7 +72,7 @@ Param(
  [switch]$WhatIf
 )
 
-Clear-Host ; $error.clear() # Clear screen and error log.
+# Clear-Host ; $error.clear() # Clear screen and error log.
 Get-PSSession | Remove-PSSession -WhatIf:$false
 
 # AD Domain Controller Session
@@ -212,8 +212,10 @@ function userTasks {
  else { "[WARNING],GSuite DISABLED for $samid" }
  # Update GSuite Address in SIS Database - STU.SEM and STU.NID
  # Aeries regardless of U12 (GSUITE Enabled) value
+ 1
  $updateSEM = "Update STU Set stu.sem = `'$gmail`' Where stu.id = $empId"
  Invoke-SQLCommand @dbParams -SqlCmd $updateSEM -WhatIf:$WhatIf
+ 2
  $updateNID = "Update STU Set stu.nid = `'$gmail`' Where stu.id = $empId"
  Invoke-SQLCommand @dbParams -SqlCmd $updateNID -WhatIf:$WhatIf
  Write-Verbose "Completed Student User Tasks for $samid"
@@ -233,6 +235,7 @@ do {
  ###########################
  #  Compare Aeries and AD  #
  ###########################
+ 3
  $results = Invoke-SQLCommand @dbParams -Query $query
  if ( !$PermId ) {
   $adStuParams = @{
@@ -261,6 +264,7 @@ do {
    $diffQuery = (Get-Content .\sql\search-ids.sql -Raw) + $idString # Build a query just for the subset of ids
   }
   else { continue } # if idString array is empty then skip this loop.
+  4
   $results = Invoke-SQLCommand @dbParams -Query $diffQuery
  }
  ############################
@@ -303,6 +307,7 @@ do {
   ######################
   elseif ( $userObj.DistinguishedName -notlike "*$path" ) {
    # Check GSuite account and unsuspend if needed
+   "WAHHHHHHHHH?????? 11111"
    if ((.$gam info user $samid@chicousd.net) -match 'Account Suspended: True') {
     (.$gam update user $samid@chicousd.net suspended off) *>$null
    }

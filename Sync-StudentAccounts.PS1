@@ -84,6 +84,7 @@ $adCmdLets = @(
  'Rename-ADObject'
  'Remove-ADPrincipalGroupMembership'
  'Add-ADPrincipalGroupMembership'
+ 'Get-ADOrganizationalUnit'
 )
 $adSession = New-PSSession -ComputerName $DomainController -Credential $ADCredential
 Import-PSSession -Session $adSession -Module ActiveDirectory -CommandName $adCmdLets -AllowClobber > $null
@@ -170,7 +171,7 @@ function userTasks {
 
  # Clear from Old Groups
  $oldGroups = $userObj.memberof
- if ( $oldGroups ) { 
+ if ( $oldGroups ) {
   # Add-Log groupremove $samid $WhatIf
   Remove-ADPrincipalGroupMembership -Identity $userGuid -MemberOf $oldGroups -Confirm:$False
  }

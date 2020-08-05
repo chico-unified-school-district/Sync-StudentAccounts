@@ -113,22 +113,22 @@ function queryUser ($empId) {
 
 function setGrade ($grade) {
  switch ($grade) {
-  -1 { 'Prek' }; 0 { 'K' }; 1 { '1st' }; 2 { '2nd' }; 3 { '3rd' }; 4 { '4th' }; 5 { '5th' };
+  -1 { 'Prek' }; -2 { 'Prek '};0 { 'K' }; 1 { '1st' }; 2 { '2nd' }; 3 { '3rd' }; 4 { '4th' }; 5 { '5th' };
   6 { '6th' }; 7 { '7th' }; 8 { '8th' }; 9 { '9th' }; 10 { '10th' }; 11 { '11th' }; 12 { '12th' };
   13 { '12th' }; 14 { '12th' }; 17 { 'Prek' }; 18 { 'Prek' }
  }
 }
 
 # Stuff
-function setPath ($grade, $path, $departmentNumber) {
+function setRootOU ($grade, $rootOU, $departmentNumber) {
  # Skip Handling of School 19 (Special Education) and Grade Over the 18th Level
  if (($grade -le 18) -and ($departmentNumber -ne 19)) {
-  "OU={0},{1}" -f (setGrade $grade), $Path # Build proper OU path based on grade level
+  "OU={0},{1}" -f (setGrade $grade), $rootOU # Build proper OU path based on grade level
  }
- else { $path }
+ else { $rootOU }
 }
 
-function userTasks {
+function userTasks { # Begin userTask function -----------------------------------------------------------------
  param(
   [Parameter(Mandatory = $True)]
   [ValidateNotNullOrEmpty()]
@@ -162,15 +162,17 @@ function userTasks {
  Set-ADUser -Identity $userGuid -Replace $userAttributes -Confirm:$False -WhatIf:$WhatIf
 
  # Confirm target Org Unit
- if ([adsi]::Exists("LDAP://$path")) {
-  Add-Log move ('{0},{1}' -f $samid, $path.Split(",")[0] + ',' + $path.Split(",")[1]) $WhatIf
-  Move-ADObject -Identity $userGuid -TargetPath $path -WhatIf:$WhatIf
+ try {
+  if ( Get-ADOrganizationalUnit -Identity $rootOU ){
+   Add-Log move ('{0},{1}' -f $samid, $rootOU.Split(",")[0] + ',' + $rootOU.Split(",")[1]) $WhatIf
+   Move-ADObject -Identity $userGuid -TargetPath $rootOU -WhatIf:$WhatIf
+  }
  }
- else { Add-Log warning "$samid,PATH INVALID:$path" $WhatIf }
+ catch {Add-Log warning "$samid,PATH INVALID:$rootOU" $WhatIf}
 
  # Clear from Old Groups
  $oldGroups = $userObj.memberof
- if ( $oldGroups ) { 
+ if ( $oldGroups ) {
   # Add-Log groupremove $samid $WhatIf
   Remove-ADPrincipalGroupMembership -Identity $userGuid -MemberOf $oldGroups -Confirm:$False
  }
@@ -212,10 +214,10 @@ function userTasks {
  else { "[WARNING],GSuite DISABLED for $samid" }
  # Update GSuite Address in SIS Database - STU.SEM and STU.NID
  # Aeries regardless of U12 (GSUITE Enabled) value
- 1
+ 
  $updateSEM = "Update STU Set stu.sem = `'$gmail`' Where stu.id = $empId"
  Invoke-SQLCommand @dbParams -SqlCmd $updateSEM -WhatIf:$WhatIf
- 2
+ 
  $updateNID = "Update STU Set stu.nid = `'$gmail`' Where stu.id = $empId"
  Invoke-SQLCommand @dbParams -SqlCmd $updateNID -WhatIf:$WhatIf
  Write-Verbose "Completed Student User Tasks for $samid"
@@ -235,7 +237,6 @@ do {
  ###########################
  #  Compare Aeries and AD  #
  ###########################
- 3
  $results = Invoke-SQLCommand @dbParams -Query $query
  if ( !$PermId ) {
   $adStuParams = @{
@@ -264,7 +265,7 @@ do {
    $diffQuery = (Get-Content .\sql\search-ids.sql -Raw) + $idString # Build a query just for the subset of ids
   }
   else { continue } # if idString array is empty then skip this loop.
-  4
+  
   $results = Invoke-SQLCommand @dbParams -Query $diffQuery
  }
  ############################
@@ -275,12 +276,12 @@ do {
   Write-Verbose  ($row | Out-String)
   $samid = $row.givenName.SubString(0, 1) + $row.sn.SubString(0, 1) + $row.employeeId
   $empId = $row.employeeId
-  # We never use this ($secureInitialPW) password 
+  # We never use this ($secureInitialPW) password
   # as it is updated by another script shortly after account creation.
   $secureInitialPW = (ConvertTo-SecureString (Random-Password) -AsPlainText -force)
   $gmail = "$samid@ChicoUSD.Net" # Set the CUSD GMail address
   $site = $lookupTable | Where-Object { $_.SC -eq $row.departmentNumber } # Query the site table for a match
-  $path = setPath $row.grade $site.path $row.departmentNumber # Build final target OU path for object
+  $rootOU = setRootOU $row.grade $site.path $row.departmentNumber # Build final target OU path for object
   Write-Verbose ("{0} | {1} {2} | {3}" -f $samid, $row.givenName, $row.sn, $site.SiteName)
   $userObj = queryUser $empId
 
@@ -301,11 +302,14 @@ do {
     Write-Verbose "$samid,New User - Syncing AD"
     Start-Sleep 4 # wait while AD replicates
    }
+   # Move object to student site OU, but not the grade OU to force userTasks funtion to run
+   # On the next loop which ensures the Gsuite account has had time to sync.
+   Move-ADObject -Identity $userObj.ObjectGUID -TargetPath $site.path -Confirm:$false -WhatIf:$WhatIf
   }
   ######################
   #  Move User Object  #
   ######################
-  elseif ( $userObj.DistinguishedName -notlike "*$path" ) {
+  elseif ( $userObj.DistinguishedName -notlike "*$rootOU" ) {
    # Check GSuite account and unsuspend if needed
    if ((.$gam info user $samid@chicousd.net) -match 'Account Suspended: True') {
     (.$gam update user $samid@chicousd.net suspended off) *>$null
@@ -325,22 +329,6 @@ do {
      continue
     }
    }
-   # Begin File Recovery
-   # $oldSite = $lookupTable | Where-Object { $_.SC -eq $userObj.departmentNumber }
-   # if ($oldSite.FileServer) {
-   #  $oldHomePath = '\\{0}\{1}\{2}\Documents' -f $oldSite.FileServer, $oldSite.ShareName, $samid
-   #  # Get-ChildItem -Path $oldHomePath
-   #  $createHomeShortCutParams = @{
-   #   FileServer       = $site.FileServer
-   #   Sharename        = $site.ShareName
-   #   samid            = $samid
-   #   ServerCredential = $FileServerCredential
-   #   OldHomePath      = $oldHomePath
-   #   WhatIf           = $WhatIf
-   #  }
-   #  Create-HomeShortCut @createHomeShortCutParams
-   # }
-   # End File Recovery
    UserTasks $userObj.ObjectGUID
   } # End Move User Object
 
@@ -350,7 +338,7 @@ do {
 
  if ( $OneLoop -or $PermId -or $WhatIf ) { BREAK }
  else {
-  #  Wait x munutes and run again until $endTime
+  #  Wait x minutes and run again until $endTime
   Write-Host ("Next run at {0}" -f ($nextRun = (Get-Date).AddHours(1))) -ForegroundColor Blue
   do { Start-Sleep 1 } until ( (Get-Date) -ge $nextRun )
  }

@@ -162,13 +162,10 @@ function userTasks { # Begin userTask function ---------------------------------
  Set-ADUser -Identity $userGuid -Replace $userAttributes -Confirm:$False -WhatIf:$WhatIf
 
  # Confirm target Org Unit
- try {
-  if ( Get-ADOrganizationalUnit -Identity $rootOU ){
-   Add-Log move ('{0},{1}' -f $samid, $rootOU.Split(",")[0] + ',' + $rootOU.Split(",")[1]) $WhatIf
-   Move-ADObject -Identity $userGuid -TargetPath $rootOU -WhatIf:$WhatIf
-  }
- }
- catch {Add-Log warning "$samid,PATH INVALID:$rootOU" $WhatIf}
+ 
+ Add-Log move ('{0},{1}' -f $samid, $rootOU.Split(",")[0] + ',' + $rootOU.Split(",")[1]) $WhatIf
+ try { Move-ADObject -Identity $userGuid -TargetPath $rootOU -WhatIf:$WhatIf }
+ catch { Add-Log warning "$samid,PATH INVALID:$rootOU" $WhatIf }
 
  # Clear from Old Groups
  $oldGroups = $userObj.memberof

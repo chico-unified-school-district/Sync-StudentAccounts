@@ -304,7 +304,9 @@ do {
    }
    # Move object to student site OU, but not the grade OU to force userTasks funtion to run
    # On the next loop which ensures the Gsuite account has had time to sync.
+   Add-Log new-move ('{0},{1}...' -f $samid, $site.path.substring(0,15)) $WhatIf
    Move-ADObject -Identity $userObj.ObjectGUID -TargetPath $site.path -Confirm:$false -WhatIf:$WhatIf
+   Set-ADUser -Identity $userObj.ObjectGUID -Enabled $true -WhatIf:$WhatIf
   }
   ######################
   #  Move User Object  #

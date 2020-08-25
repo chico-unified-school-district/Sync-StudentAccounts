@@ -94,8 +94,8 @@ $gam = '.\lib\gam-64\gam.exe'
 $lookUpTable = Get-Content -Path .\json\lookupTable.json -Raw | ConvertFrom-Json
 
 # ♥ If current month is greater than 6 (June) Set userAccountExpireDate to August 15th of next year. ♥
-$year = "{0:yyyy}" -f $(if ((Get-Date -f MM) -gt 6) { (Get-Date).AddYears(1) } else { Get-Date })
-$userAccountExpireDate = Get-Date "August 18 $year"
+# $year = "{0:yyyy}" -f $(if ((Get-Date -f MM) -gt 6) { (Get-Date).AddYears(1) } else { Get-Date })
+# $userAccountExpireDate = Get-Date "August 18 $year"
 
 # Imported Functions
 . .\lib\Add-Log.ps1             # Format log strings
@@ -191,7 +191,7 @@ function userTasks { # Begin userTask function ---------------------------------
  else { Write-Verbose ("No Site Fileserver set for {0} at {1}" -f $samid, $site.SiteName) }
 
  Write-Verbose "Checking GSuite Status"
- $gmail = "$samid@chicousd.net"
+ $gmail = $samid+'@chicousd.net'
  if ( $row.GSuiteStatus -ne "n" ) {
   # if 'n' then the parent requested no GSuite account/access
   <# We copy this shortcut to the user's homedir and rename it 
@@ -289,8 +289,11 @@ do {
    Add-Log New-ADUSer ('{0},{1}' -f $samid, $site.SiteName) $WhatIf
    $newUserParams = @{
     Name            = $samid
+    GivenName       = $row.GivenName
+    Surname         = $row.sn
     AccountPassword = $secureInitialPW
     employeeId      = $empId # Foreign DB key
+    HomePage        = $gmail
     Path            = 'OU=Disabled_Student_Objects,OU=Disabled_User_Objects,DC=chico,DC=usd'
    }
    New-ADuser @newUserParams -WhatIf:$WhatIf # Create Simple User Object
@@ -310,8 +313,15 @@ do {
   ######################
   elseif ( $userObj.DistinguishedName -notlike "*$rootOU" ) {
    # Check GSuite account and unsuspend if needed
-   if ((.$gam info user $samid@chicousd.net) -match 'Account Suspended: True') {
-    (.$gam update user $samid@chicousd.net suspended off) *>$null
+   ($gamStatusCheck = .$gam print users query "email:$gmail" fields suspended | convertfrom-csv)*>$null
+   if ($gamStatusCheck.suspended -eq $true) {
+    Add-Log gsuite ('{0},Activating Account' -f $gmail)
+    if ($WhatIf){ 
+     "$gam update user $gmail suspended off"
+    }
+    else {
+     (.$gam update user $gmail suspended off) *>$null
+    }
    }
    if ($userObj.name -ne "$samid") {
     Add-Log Rename ("{0} => {1}" -f $userObj.name, $samid) $WhatIf

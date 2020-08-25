@@ -317,7 +317,7 @@ do {
    if ($gamStatusCheck.suspended -eq $true) {
     Add-Log gsuite ('{0},Activating Account' -f $gmail)
     if ($WhatIf){ 
-     "$gam update user $gmail suspended off"
+     "[WHATIF] $gam update user $gmail suspended off"
     }
     else {
      (.$gam update user $gmail suspended off) *>$null

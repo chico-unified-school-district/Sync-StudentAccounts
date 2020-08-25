@@ -58,6 +58,8 @@ Param(
  [Alias('sc')]
  [System.Management.Automation.PSCredential]$SISCredential,
  [Parameter(Mandatory = $false)]
+ [array]$SkipSiteCodes,
+ [Parameter(Mandatory = $false)]
  [Alias('ol')]
  [SWITCH]$OneLoop,
  # Include PermID to process one user account
@@ -330,12 +332,13 @@ do {
    # Skip operations for students assigned to specific school sites
    # Check number of entries
    $entries = $results | Where-Object ( { $_.employeeId -match $userObj.employeeId } )
-   # Skip site if another site is detected
-   $skipSiteCodes = 3, 8, 9, 10, 11, 91
-   if ($entries.count -gt 1) {
-    if ($skipSiteCodes -match [int]$row.departmentNumber) {
-     Write-Verbose ('{0} {1} Alternate Site detected. Skipping' -f $samid, $row.departmentNumber)
-     continue
+   # Skip site if another site is detected and SkipSiteCode array present
+   if ($SkipSiteCodes) {
+    if ($entries.count -gt 1) {
+     if ($skipSiteCodes -match [int]$row.departmentNumber) {
+      Write-Verbose ('{0} {1} Alternate Site detected. Skipping' -f $samid, $row.departmentNumber)
+      continue
+     }
     }
    }
    UserTasks $userObj.ObjectGUID

@@ -335,7 +335,7 @@ do {
    # Skip site if another site is detected and SkipSiteCode array present
    if ($SkipSiteCodes) {
     if ($entries.count -gt 1) {
-     if ($skipSiteCodes -match [int]$row.departmentNumber) {
+     if ($skipSiteCodes -contains [int]$row.departmentNumber) {
       Write-Verbose ('{0} {1} Alternate Site detected. Skipping' -f $samid, $row.departmentNumber)
       continue
      }

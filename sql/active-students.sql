@@ -9,7 +9,8 @@ SELECT
  STU.GR as gecos,
  CONCAT(STU.ID,STU.SC,STU.GR) AS stuRefID
 FROM STU
-WHERE 
+WHERE
+-- Query both Active and Pre-Enrolled(*) students in the SIS
  ( (STU.del = 0) OR (STU.del IS NULL) ) AND ( STU.tg = ' ' OR (STU.TG = '*') )
  AND STU.SC IN ( 1,2,3,5,6,7,8,9,10,11,12,13,16,17,18,19,20,21,23,24,25,26,27,28,91 )
  AND STU.BD IS NOT NULL

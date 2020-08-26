@@ -48,7 +48,7 @@ Param(
  [Alias('FSCred', 'fc')]
  [System.Management.Automation.PSCredential]$FileServerCredential,
  [Parameter(Mandatory = $true)]
- [ValidateScript( { Test-Connection -ComputerName $_ -Quiet -Count 1 })]
+ [ValidateScript( { Test-Connection -ComputerName $_ -Quiet -Count 3 })]
  [Alias('ss')]
  [string]$SISServer,
  [Parameter(Mandatory = $true)]

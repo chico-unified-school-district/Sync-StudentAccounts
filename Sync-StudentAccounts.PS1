@@ -164,7 +164,6 @@ function userTasks { # Begin userTask function ---------------------------------
  Set-ADUser -Identity $userGuid -Replace $userAttributes -Confirm:$False -WhatIf:$WhatIf
 
  # Confirm target Org Unit
- 
  Add-Log move ('{0},{1}' -f $samid, $rootOU.Split(",")[0] + ',' + $rootOU.Split(",")[1]) $WhatIf
  try { Move-ADObject -Identity $userGuid -TargetPath $rootOU -WhatIf:$WhatIf }
  catch { Add-Log warning "$samid,PATH INVALID:$rootOU" $WhatIf }
@@ -299,10 +298,10 @@ do {
     Path            = 'OU=Disabled_Student_Objects,OU=Disabled_User_Objects,DC=chico,DC=usd'
    }
    New-ADuser @newUserParams -WhatIf:$WhatIf # Create Simple User Object
+   Start-Sleep 10 # wait while AD replicates
    if ($userObj = queryUser $empId) {
     # I keep removing this and then I keep putting it back. Just leave it, dude.
     Write-Verbose "$samid,New User - Syncing AD"
-    Start-Sleep 4 # wait while AD replicates
    }
    # Move object to student site OU, but not the grade OU to force userTasks funtion to run
    # On the next loop which ensures the Gsuite account has had time to sync.

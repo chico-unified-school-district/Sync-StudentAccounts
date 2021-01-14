@@ -174,10 +174,16 @@ function userTasks { # Begin userTask function ---------------------------------
   # Add-Log groupremove $samid $WhatIf
   Remove-ADPrincipalGroupMembership -Identity $userGuid -MemberOf $oldGroups -Confirm:$False
  }
+
  # Add to New Groups
  $newGroups = $site.StudentGroup, $site.FilterGroup
  # Add-Log groupadd $samid $WhatIf
- Add-ADPrincipalGroupMembership -Identity $userGuid -MemberOf $newGroups 
+ # Assign Password Policy Group for Secondary students
+ if ($row.grade -ge 6){
+  $newGroups += 'Password-Students-6-12'
+ }
+
+ Add-ADPrincipalGroupMembership -Identity $userGuid -MemberOf $newGroups
 
  if ( $site.FileServer ) {
   $homeDirParams = @{

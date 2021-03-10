@@ -40,7 +40,7 @@ Param(
  [Alias('DC', 'Server')]
  [ValidateScript( { Test-Connection -ComputerName $_ -Quiet -Count 1 })]
  [string]$DomainController,
- # PSSession to Domain Controller and Use Active Directory CMDLETS  
+ # PSSession to Domain Controller and Use Active Directory CMDLETS
  [Parameter(Mandatory = $True)]
  [Alias('ADCred', 'ac')]
  [System.Management.Automation.PSCredential]$ADCredential,
@@ -66,7 +66,7 @@ Param(
  [Parameter(Mandatory = $false)]
  [Alias('id', 'pid', 'pi')]
  [int]$PermId,
- # Run UserTasks for all active student accounts 
+ # Run UserTasks for all active student accounts
  [Parameter(Mandatory = $false)]
  [Alias('ut')]
  [SWITCH]$UserTasks,
@@ -123,7 +123,7 @@ function setGrade ($grade) {
 
 # Stuff
 function setRootOU ($grade, $rootOU, $departmentNumber) {
- # Skip Handling of School 19 (Special Education) and Grade Over the 18th Level
+ # Skip Handling of School 19 (Special Education) and Grades Over the 18th Level
  if (($grade -le 18) -and ($departmentNumber -ne 19)) {
   "OU={0},{1}" -f (setGrade $grade), $rootOU # Build proper OU path based on grade level
  }
@@ -164,9 +164,12 @@ function userTasks { # Begin userTask function ---------------------------------
  Set-ADUser -Identity $userGuid -Replace $userAttributes -Confirm:$False -WhatIf:$WhatIf
 
  # Confirm target Org Unit
- Add-Log move ('{0},{1}' -f $samid, $rootOU.Split(",")[0] + ',' + $rootOU.Split(",")[1]) $WhatIf
- try { Move-ADObject -Identity $userGuid -TargetPath $rootOU -WhatIf:$WhatIf }
- catch { Add-Log warning "$samid,PATH INVALID:$rootOU" $WhatIf }
+ if ( $userObj.DistinguishedName -notlike "*$rootOU*" ) {
+  Write-Verbose ('''{0}'' not like ''{1}''' -f $rootOU, $userObj.DistinguishedName)
+  Add-Log move ('{0},{1}' -f $samid, $rootOU.Split(",")[0] + ',' + $rootOU.Split(",")[1]) $WhatIf
+  try { Move-ADObject -Identity $userGuid -TargetPath $rootOU -WhatIf:$WhatIf }
+  catch { Add-Log warning "$samid,PATH INVALID:$rootOU" $WhatIf }
+ }
 
  # Clear from Old Groups
  $oldGroups = $userObj.memberof
@@ -201,7 +204,7 @@ function userTasks { # Begin userTask function ---------------------------------
  $gmail = $samid+'@chicousd.net'
  if ( $row.GSuiteStatus -ne "n" ) {
   # if 'n' then the parent requested no GSuite account/access
-  <# We copy this shortcut to the user's homedir and rename it 
+  <# We copy this shortcut to the user's homedir and rename it
    to his or her GSuite login. It points to a Google Doc containing helpful GSuite info. #>
   if ( ($site.FileServer) -and (Test-Connection -ComputerName $site.FileServer -Count 1) ) {
    Create-GSuiteURL -Server $site.FileServer -Share $site.ShareName -samid $samid -Cred $FileServerCredential -WhatIf:$WhatIf
@@ -218,10 +221,10 @@ function userTasks { # Begin userTask function ---------------------------------
  else { "[WARNING],GSuite DISABLED for $samid" }
  # Update GSuite Address in SIS Database - STU.SEM and STU.NID
  # Aeries regardless of U12 (GSUITE Enabled) value
- 
+
  $updateSEM = "Update STU Set stu.sem = `'$gmail`' Where stu.id = $empId"
  Invoke-SQLCommand @dbParams -SqlCmd $updateSEM -WhatIf:$WhatIf
- 
+
  $updateNID = "Update STU Set stu.nid = `'$gmail`' Where stu.id = $empId"
  Invoke-SQLCommand @dbParams -SqlCmd $updateNID -WhatIf:$WhatIf
  Write-Verbose "Completed Student User Tasks for $samid"
@@ -269,7 +272,7 @@ do {
    $diffQuery = (Get-Content .\sql\search-ids.sql -Raw) + $idString # Build a query just for the subset of ids
   }
   else { continue } # if idString array is empty then skip this loop.
-  
+
   $results = Invoke-SQLCommand @dbParams -Query $diffQuery
  }
  ############################
@@ -278,6 +281,13 @@ do {
  foreach ( $row in $results ) {
   Write-Debug ("Process {0}" -f $row.employeeId)
   Write-Verbose  ($row | Out-String)
+
+  # Check Enrollment Status Conflicts
+  if ($row.enrstatus -eq "*"){
+
+   $row
+   read-host
+  }
   $samid = $row.givenName.SubString(0, 1) + $row.sn.SubString(0, 1) + $row.employeeId
   $empId = $row.employeeId
   # We never use this ($secureInitialPW) password
@@ -286,6 +296,7 @@ do {
   $gmail = "$samid@ChicoUSD.Net" # Set the CUSD GMail address
   $site = $lookupTable | Where-Object { $_.SC -eq $row.departmentNumber } # Query the site table for a match
   $rootOU = setRootOU $row.grade $site.path $row.departmentNumber # Build final target OU path for object
+  Write-Verbose $rootOU
   Write-Verbose ("{0} | {1} {2} | {3}" -f $samid, $row.givenName, $row.sn, $site.SiteName)
   $userObj = queryUser $empId
 
@@ -318,12 +329,13 @@ do {
   ######################
   #  Move User Object  #
   ######################
-  elseif ( $userObj.DistinguishedName -notlike "*$rootOU" ) {
+  elseif ( $userObj.DistinguishedName -notlike "*$rootOU*" ) {
+   Write-Verbose ('''{0}'' not like ''{1}''' -f $rootOU, $userObj.DistinguishedName)
    # Check GSuite account and unsuspend if needed
    ($gamStatusCheck = .$gam print users query "email:$gmail" fields suspended | convertfrom-csv)*>$null
    if ($gamStatusCheck.suspended -eq $true) {
     Add-Log gsuite ('{0},Activating Account' -f $gmail)
-    if ($WhatIf){ 
+    if ($WhatIf){
      "[WHATIF] $gam update user $gmail suspended off"
     }
     else {
@@ -334,19 +346,22 @@ do {
     Add-Log Rename ("{0} => {1}" -f $userObj.name, $samid) $WhatIf
     Rename-ADObject -Identity $userObj.ObjectGUID -NewName $samid -WhatIf:$WhatIf # fixes object name whne updated from Aeries
    }
+
    # Skip operations for students assigned to specific school sites
    # Check number of entries
    $entries = $results | Where-Object ( { $_.employeeId -match $userObj.employeeId } )
    # Skip site if another site is detected and SkipSiteCode array present
    if ($SkipSiteCodes) {
     if ($entries.count -gt 1) {
-     if ($skipSiteCodes -contains [int]$row.departmentNumber) {
+     if ($SkipSiteCodes -contains [int]$row.departmentNumber) {
       Write-Verbose ('{0} {1} Alternate Site detected. Skipping' -f $samid, $row.departmentNumber)
       continue
      }
     }
    }
+
    UserTasks $userObj.ObjectGUID
+
   } # End Move User Object
 
   elseif ($UserTasks) { UserTasks $userObj.ObjectGUID }

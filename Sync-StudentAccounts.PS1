@@ -166,7 +166,9 @@ function userTasks { # Begin userTask function ---------------------------------
  # Confirm target Org Unit
  if ( $userObj.DistinguishedName -notlike "*$rootOU*" ) {
   Write-Verbose ('''{0}'' not like ''{1}''' -f $rootOU, $userObj.DistinguishedName)
-  Add-Log move ('{0},{1}' -f $samid, $rootOU.Split(",")[0] + ',' + $rootOU.Split(",")[1]) $WhatIf
+  # Write-Verbose $rootOU
+  Add-Log move ('{0},{1}' -f $samid, $rootOU.Split(",")[0] + ',' + $rootOU.Split(",")[1] ) $WhatIf
+  # Add-Log move ('{0},{1} {2}' -f $samid, $row.grade, $site.SiteName ) $WhatIf
   try { Move-ADObject -Identity $userGuid -TargetPath $rootOU -WhatIf:$WhatIf }
   catch { Add-Log warning "$samid,PATH INVALID:$rootOU" $WhatIf }
  }
@@ -275,6 +277,10 @@ do {
 
   $results = Invoke-SQLCommand @dbParams -Query $diffQuery
  }
+
+ <# $repeaterHash is used to keep track of users who have been processed
+ and to avoid re-processing users on subsequent runs #>
+ $repeaterHash = @{}
  ############################
  #  Process Aeries Results  #
  ############################
@@ -282,22 +288,26 @@ do {
   Write-Debug ("Process {0}" -f $row.employeeId)
   Write-Verbose  ($row | Out-String)
 
-  # Check Enrollment Status Conflicts
-  if ($row.enrstatus -eq "*"){
-
-   $row
-   read-host
-  }
-  $samid = $row.givenName.SubString(0, 1) + $row.sn.SubString(0, 1) + $row.employeeId
   $empId = $row.employeeId
-  # We never use this ($secureInitialPW) password
-  # as it is updated by another script shortly after account creation.
+
+  # skip entries that have been processed more than 2 times
+  if ( $repeaterHash[$empId] -gt 2) { 
+   Write-Verbose ( '{0} processed twice. Skipping' -f $empId )
+   continue 
+  } else { $repeaterHash[$empId] += 1 }
+ 
+   $samid = $row.givenName.SubString(0, 1) + $row.sn.SubString(0, 1) + $row.employeeId
+
+  <# We only use this ($secureInitialPW) password to initialize the account.
+   It is updated by another process (Update-GsuitePassword.ps1) shortly after account creation. #>
   $secureInitialPW = (ConvertTo-SecureString (Random-Password) -AsPlainText -force)
   $gmail = "$samid@ChicoUSD.Net" # Set the CUSD GMail address
   $site = $lookupTable | Where-Object { $_.SC -eq $row.departmentNumber } # Query the site table for a match
+
   $rootOU = setRootOU $row.grade $site.path $row.departmentNumber # Build final target OU path for object
   Write-Verbose $rootOU
   Write-Verbose ("{0} | {1} {2} | {3}" -f $samid, $row.givenName, $row.sn, $site.SiteName)
+
   $userObj = queryUser $empId
 
   if ( !$userObj ) {
@@ -350,11 +360,13 @@ do {
    # Skip operations for students assigned to specific school sites
    # Check number of entries
    $entries = $results | Where-Object ( { $_.employeeId -match $userObj.employeeId } )
-   # Skip site if another site is detected and SkipSiteCode array present
+   # Skip site if a preferred/conflicting site is detected and SkipSiteCode array present
    if ($SkipSiteCodes) {
     if ($entries.count -gt 1) {
+     Write-Verbose 'Multiple sites detected'
+     Write-Verbose ( $entries | Out-String )
      if ($SkipSiteCodes -contains [int]$row.departmentNumber) {
-      Write-Verbose ('{0} {1} Alternate Site detected. Skipping' -f $samid, $row.departmentNumber)
+      Write-Verbose ('{0} {1} Preferred Site detected. Skipping' -f $samid, $row.departmentNumber)
       continue
      }
     }
@@ -365,6 +377,7 @@ do {
   } # End Move User Object
 
   elseif ($UserTasks) { UserTasks $userObj.ObjectGUID }
+  
   Write-Verbose "====== End Processing $samid ======"
  } # End Parse Database Query Results
 

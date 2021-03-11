@@ -3,7 +3,7 @@ function Invoke-SqlCommand {
 	param
 	(
   [Parameter(Position = 0, Mandatory = $True)]
-  [ValidateScript( { Test-Connection -ComputerName $_ -Quiet -Count 1 })]
+  [ValidateScript( { Test-Connection -ComputerName $_ -Quiet -Count 2 })]
   [string]$Server,
   [Parameter(Position = 0, Mandatory = $True)]
   [string]$Database,

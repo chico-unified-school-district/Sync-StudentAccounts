@@ -241,6 +241,10 @@ $dbParams = @{
 if ($Permid) { $query = $(Get-Content -Path .\sql\single-permid.sql -Raw) + $PermId }
 else { $query = Get-Content -Path .\sql\active-students.sql -Raw }
 
+ <# $repeaterHash is used to keep track of users who have been processed
+ and to avoid re-processing users on subsequent runs #>
+$repeaterHash = @{}
+
 # Begin Major Loop
 do {
  ###########################
@@ -278,9 +282,6 @@ do {
   $results = Invoke-SQLCommand @dbParams -Query $diffQuery
  }
 
- <# $repeaterHash is used to keep track of users who have been processed
- and to avoid re-processing users on subsequent runs #>
- $repeaterHash = @{}
  ############################
  #  Process Aeries Results  #
  ############################
@@ -291,12 +292,13 @@ do {
   $empId = $row.employeeId
 
   # skip entries that have been processed more than 2 times
-  if ( $repeaterHash[$empId] -gt 2) { 
-   Write-Verbose ( '{0} processed twice. Skipping' -f $empId )
-   continue 
-  } else { $repeaterHash[$empId] += 1 }
- 
-   $samid = $row.givenName.SubString(0, 1) + $row.sn.SubString(0, 1) + $row.employeeId
+  if ( $repeaterHash[$empId] -ge 2 ) {
+   ( Write-Verbose '{0} processed {1} times. Skipping' -f $empId, $repeaterHash[$empId])
+   continue
+  }
+  $repeaterHash[$empId] += 1
+
+  $samid = $row.givenName.SubString(0, 1) + $row.sn.SubString(0, 1) + $row.employeeId
 
   <# We only use this ($secureInitialPW) password to initialize the account.
    It is updated by another process (Update-GsuitePassword.ps1) shortly after account creation. #>
@@ -382,9 +384,11 @@ do {
  } # End Parse Database Query Results
 
  if ( $OneLoop -or $PermId -or $WhatIf ) { BREAK }
+ # if ( $OneLoop -or $PermId ) { BREAK }
  else {
   #  Wait x minutes and run again until $endTime
-  Write-Host ("Next run at {0}" -f ($nextRun = (Get-Date).AddHours(1))) -ForegroundColor Blue
+  $nextRun = (Get-Date).AddHours(1)
+  Write-Host ("Next run at {0}" -f $nextRun )
   do { Start-Sleep 1 } until ( (Get-Date) -ge $nextRun )
  }
 } until ( (Get-Date) -ge (Get-Date "5:00pm") ) # End Major Loop

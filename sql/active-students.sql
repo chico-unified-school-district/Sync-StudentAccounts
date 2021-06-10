@@ -13,8 +13,7 @@ FROM STU
 WHERE
 -- Query both Active and Pre-Enrolled(*) students in the SIS
  ( (STU.del = 0) OR (STU.del IS NULL) ) AND ( STU.tg = ' ' )
- --( (STU.del = 0) OR (STU.del IS NULL) ) AND ( STU.tg = ' ' )
- --AND STU.SC IN ( 1,2,3,5,6,7,8,9,10,11,12,13,16,17,18,19,20,21,23,24,25,26,27,28,91 )
+ AND STU.SC IN ( 1,2,3,5,6,7,8,9,10,11,12,13,16,17,18,19,20,21,23,24,25,26,27,28,43,91 )
  AND STU.BD IS NOT NULL
  AND STU.FN IS NOT NULL
  AND STU.LN IS NOT NULL

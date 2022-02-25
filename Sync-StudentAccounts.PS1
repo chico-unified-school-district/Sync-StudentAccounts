@@ -40,7 +40,7 @@ Param(
  [Parameter(Mandatory = $False)]
  $StopTime,
  [Parameter(Mandatory = $False)]
- [int]$Delay = (60 * 30),
+ [int]$Delay = (60 * 15),
  [Parameter(Mandatory = $True)]
  [Alias('DC', 'Server')]
  [ValidateScript( { Test-Connection -ComputerName $_ -Quiet -Count 1 })]

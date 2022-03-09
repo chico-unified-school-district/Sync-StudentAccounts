@@ -375,17 +375,13 @@ function Update-AeriesStuData {
    Database   = $SISDatabase
    Credential = $SISCredential
   }
-  # $baseSelectSql = 'Select sem FROM STU Where id = {0}'
   $baseUpdateStuSem = "Update STU Set stu.sem = `'{0}`' Where stu.id = {1}"
   $baseUpdateStuNid = "Update STU Set stu.nid = `'{0}`' Where stu.id = {1}"
  }
  process {
   Write-Verbose ('{0},{1}' -f $MyInvocation.MyCommand.Name, $_.employeeId)
-  # $checkQuery = $baseSelectSql -f $_.employeeId
-  # $checkSEM = Invoke-SQLCmd @sisParams -query $checkQuery
-  $id = $_.employeeId
-  $stuData = $activeAeries.Where({ $_.employeeId -eq $id })
-  if ( (-not$stuData.homePage) -or ($stuData.homePage -ne $_.gmail) ) {
+  $checkStuData = Invoke-SQLCmd @sisParams -query ('Select * from stu where id = {0};' -f $_.employeeId)
+  if ( ($checkStuData.sem -notlike '*@chicousd.net') -or ($checkStuData.nid -notlike '*@chicousd.net')) {
    $updateStuSem = $baseUpdateStuSem -f $_.gmail, $_.employeeId
    $updateStuNid = $baseUpdateStuNid -f $_.gmail, $_.employeeId
    Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.Name, $updateStuSem)

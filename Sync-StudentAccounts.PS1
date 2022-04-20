@@ -381,7 +381,7 @@ function Update-AeriesStuData {
  process {
   Write-Verbose ('{0},{1}' -f $MyInvocation.MyCommand.Name, $_.employeeId)
   $checkStuData = Invoke-SQLCmd @sisParams -query ('Select * from stu where id = {0};' -f $_.employeeId)
-  if ( ($checkStuData.sem -notlike '*@chicousd.net') -or ($checkStuData.nid -notlike '*@chicousd.net')) {
+  if ( ($checkStuData.sem -notlike $_.gmail) -or ($checkStuData.nid -notlike $_.gmail)) {
    $updateStuSem = $baseUpdateStuSem -f $_.gmail, $_.employeeId
    $updateStuNid = $baseUpdateStuNid -f $_.gmail, $_.employeeId
    Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.Name, $updateStuSem)
@@ -442,7 +442,9 @@ function Confirm-Recursion {
   Exit
  }
 }
-
+filter Skip-BadName {
+ if ($_.sam -notlike "__*") { $_ }
+}
 # Import Functions ==========================================
 . .\lib\Clear-SessionData.ps1
 . .\lib\Load-Module
@@ -469,6 +471,7 @@ function Sync-Accounts {
  Sort-Object sn |
  Add-ObjData |
  New-StuADObject |
+ Skip-BadName |
  Set-ObjAttributes |
  Update-ADGroups |
  Update-OrgUnit |

@@ -14,7 +14,7 @@
  .EXAMPLE
   Sync-StudentAccounts.ps1 -StopTime '5:00 PM'
  .EXAMPLE
-  Sync-StudentAccounts.ps1 -WhatIf -Verbose
+  Sync-StudentAccounts.ps1 -WhatIf -Verbose -Debug
   Runs a TEST Process on all newely added users with verbose output - No changes are made.
  .INPUTS
  .OUTPUTS

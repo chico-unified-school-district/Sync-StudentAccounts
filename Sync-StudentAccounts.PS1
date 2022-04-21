@@ -443,7 +443,10 @@ function Confirm-Recursion {
  }
 }
 filter Skip-BadName {
- if ($_.sam -notlike "__*") { $_ }
+ if ($_.sam -match "^[A-Z][A-Z]\d{5,6}$") { $_ }
+ else {
+  Write-Warning ('{0},{1},[{2}]' -f $MyInvocation.MyCommand.Name, $_.employeeId, $_.sam)
+ }
 }
 # Import Functions ==========================================
 . .\lib\Clear-SessionData.ps1

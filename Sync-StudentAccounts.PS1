@@ -205,6 +205,7 @@ function New-StuADObject {
  }
  process {
   Write-Verbose ('{0},{1}' -f $MyInvocation.MyCommand.name, $_.employeeId)
+  # Write-Host ($_ | Out-String) -Fore Green
   $id = $_.employeeId
   if ($id) { $obj = Get-ADUser -Filter "employeeId -eq `'$id`'" }
   else { Write-Warning ('{0}, No employeeId detected' -f $MyInvocation.MyCommand.name) }
@@ -473,14 +474,14 @@ function Sync-Accounts {
  $results |
  Sort-Object sn |
  Add-ObjData |
- New-StuADObject |
  Skip-BadName |
+ New-StuADObject |
  Set-ObjAttributes |
  Update-ADGroups |
  Update-OrgUnit |
  New-StudentHomeDir |
  Update-AeriesStuData |
- Set-GSuiteStatus |
+ # Set-GSuiteStatus |
  # Set-OfficeLicense |
  Complete-StuProcessing
 

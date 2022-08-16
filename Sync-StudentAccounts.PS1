@@ -340,34 +340,30 @@ function Set-OfficeLicense {
   $_
  }
 }
+
 function Update-ADGroups {
  process {
   Write-Verbose ('{0},{1}' -f $MyInvocation.MyCommand.name, $_.employeeId)
   $obj = $_ | Get-StuObject
-  if ($obj) {
-   $oldGroups = $obj.memberof.ForEach( { $_.split(',')[0].TrimStart('CN=') } )
-   $newGroups = $_.StudentGroup, $_.FilterGroup
-   # Assign Password Policy Group for Secondary students
-   if ($_.grade -ge 6) { $newGroups += 'Password-Students-6-12' }
-   $compareGroups = Compare-Object -ReferenceObject $oldGroups -DifferenceObject $newGroups
-   if (($compareGroups -contains '<=') -or ($compareGroups -contains '=>')) {
-    # Remove from Old Groups
-    if ( $obj.memberof ) {
-     # Write-Debug ('{0},{1}' -f $MyInvocation.MyCommand.Name, $obj.name)
-     $removeGrpMsgVars = $MyInvocation.MyCommand.Name, $obj.name, ($oldGroups -join ', ')
-     Write-Host ('{0},{1},REMOVE,Groups: [{2}]' -f $removeGrpMsgVars) -ForegroundColor DarkYellow
-     Remove-ADPrincipalGroupMembership -Identity $obj.ObjectGUID -MemberOf $obj.memberof -Confirm:$False -WhatIf:$WhatIf
-    }
-    # Add to New Groups
-    $addGrpMsgVars = $MyInvocation.MyCommand.Name, $obj.name, ($newGroups -join ', ')
-    Write-Host ('{0},{1},ADD,Groups: [{2}],' -f $addGrpMsgVars) -ForegroundColor DarkGreen
-    Add-ADPrincipalGroupMembership -Identity $obj.ObjectGUID -MemberOf $newGroups -WhatIf:$WhatIf
-   }
-  }
-  else { Write-Warning ('{0},{1},No Object Found' -f $MyInvocation.MyCommand.Name, $_.employeeId) }
+
+  # Old Groups
+  $oldGroups = $obj.memberof.ForEach( { $_.split(',')[0].TrimStart('CN=') } )
+  $removeGrpMsgVars = $MyInvocation.MyCommand.Name, $obj.name, ($oldGroups -join ', ')
+  Write-Host ('{0},{1},REMOVE,Groups: [{2}]' -f $removeGrpMsgVars) -ForegroundColor DarkYellow
+  Remove-ADPrincipalGroupMembership -Identity $obj.ObjectGUID -MemberOf $obj.memberof -Confirm:$False -WhatIf:$WhatIf
+
+  # New Groups
+  $newGroups = $_.StudentGroup, $_.FilterGroup
+  # Assign Password Policy Group for Secondary students
+  if ([int]$_.grade -ge 6) { $newGroups += 'Password-Students-6-12' }
+  $addGrpMsgVars = $MyInvocation.MyCommand.Name, $obj.name, ($newGroups -join ', ')
+  Write-Host ('{0},{1},ADD,Groups: [{2}],' -f $addGrpMsgVars) -ForegroundColor DarkGreen
+  Add-ADPrincipalGroupMembership -Identity $obj.ObjectGUID -MemberOf $newGroups -WhatIf:$WhatIf
+  Write-Debug $MyInvocation.MyCommand.name
   $_
  }
 }
+
 function Update-AeriesStuData {
  begin {
   'SqlServer' | Load-Module

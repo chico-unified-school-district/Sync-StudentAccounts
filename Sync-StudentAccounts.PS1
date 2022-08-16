@@ -350,7 +350,9 @@ function Update-ADGroups {
   $oldGroups = $obj.memberof.ForEach( { $_.split(',')[0].TrimStart('CN=') } )
   $removeGrpMsgVars = $MyInvocation.MyCommand.Name, $obj.name, ($oldGroups -join ', ')
   Write-Host ('{0},{1},REMOVE,Groups: [{2}]' -f $removeGrpMsgVars) -ForegroundColor DarkYellow
-  Remove-ADPrincipalGroupMembership -Identity $obj.ObjectGUID -MemberOf $obj.memberof -Confirm:$False -WhatIf:$WhatIf
+  if ($null -ne $oldGroups) {
+   Remove-ADPrincipalGroupMembership -Identity $obj.ObjectGUID -MemberOf $obj.memberof -Confirm:$False -WhatIf:$WhatIf
+  }
 
   # New Groups
   $newGroups = $_.StudentGroup, $_.FilterGroup

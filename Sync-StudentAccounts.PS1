@@ -231,7 +231,7 @@ function New-StuADObject {
    New-ADUser @newObjParams -WhatIf:$WhatIf # Create Simple User Object
    # Used for delayed syncing with external systems such as Gsuite and Azure
    # $global:newAzureUsers.Add($_.employeeId)
-   # if (-not$WhatIf) { Start-Sleep 2 } # wait while AD replicates
+   if (-not$WhatIf) { Start-Sleep 3 } # wait while AD replicates
   }
   $_
  }
@@ -244,21 +244,25 @@ function New-StudentHomeDir {
   if ($_.FileServer) {
    # Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.Name, $_.SiteName) -ForegroundColor Green
    # Write-Debug ('{0},{1}' -f $MyInvocation.MyCommand.Name, $_.SiteName)
-   Write-Verbose ('{0},{1}' -f $MyInvocation.MyCommand.name, $obj.samaccountname)
-   # Write-Host ( '{0},{1},{2}' -f $MyInvocation.MyCommand.name, $sam, $site.FileServer)
-   $HomeDirModifyAccess += $_.StaffGroup
-   $domain = (Get-ADDomain).name
-   $newHomeDirParams = @{
-    FileServer   = $_.FileServer
-    ServerCred   = $FileServerCredential
-    Domain       = $domain
-    Samid        = $obj.samaccountname
-    FullAccess   = $HomeDirFullAccess
-    ModifyAccess = $HomeDirModifyAccess
-    WhatIf       = $WhatIf
+   $obj = $_ | Get-StuObject
+   if ($obj) {
+    Write-Verbose ('{0},{1}' -f $MyInvocation.MyCommand.name, $obj.samaccountname)
+    # Write-Host ( '{0},{1},{2}' -f $MyInvocation.MyCommand.name, $sam, $site.FileServer)
+    $HomeDirModifyAccess += $_.StaffGroup
+    $domain = (Get-ADDomain).name
+    $newHomeDirParams = @{
+     FileServer   = $_.FileServer
+     ServerCred   = $FileServerCredential
+     Domain       = $domain
+     Samid        = $obj.samaccountname
+     FullAccess   = $HomeDirFullAccess
+     ModifyAccess = $HomeDirModifyAccess
+     WhatIf       = $WhatIf
+    }
+    # Write-Verbose ($newHomeDirParams | Out-String)
+    New-HomeDir @newHomeDirParams
    }
-   # Write-Verbose ($newHomeDirParams | Out-String)
-   New-HomeDir @newHomeDirParams
+   else { Write-Warning ('{0},{1},No Object Found' -f $MyInvocation.MyCommand.Name, $_.employeeId) }
   }
   $_
  }

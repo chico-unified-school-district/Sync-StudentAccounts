@@ -88,7 +88,7 @@ function New-HomeDir {
    $FullAccess | New-FullAccessObj | Add-HomePath | Set-Permissions
    $ModifyAccess | New-ModAccessObj | Add-HomePath | Set-Permissions
    $targetUser | New-ReadAccessObj | Add-HomePath | Set-Permissions
-   $targetUser | New-ModAccessObj | Add-DocsPath | Set-Permissions
+   $targetUser | New-ModAccessObj | Add-DocsPath | Set-Permissions~
    # | Set-Permissions
    $homePath | Remove-Inheritance
   }

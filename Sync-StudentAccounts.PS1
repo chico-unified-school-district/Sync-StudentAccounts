@@ -345,23 +345,24 @@ function Update-ADGroups {
  process {
   Write-Verbose ('{0},{1}' -f $MyInvocation.MyCommand.name, $_.employeeId)
   $obj = $_ | Get-StuObject
+  if ($obj) {
+   # Old Groups
+   $oldGroups = $obj.memberof.ForEach( { if ($_ -notlike "*studentAdobeCC*") { $_.split(',')[0].TrimStart('CN=') } })
+   if ($oldGroups.count -gt 0) {
+    $removeGrpMsgVars = $MyInvocation.MyCommand.Name, $obj.name, ($oldGroups -join ', ')
+    Write-Host ('{0},{1},REMOVE,Groups: [{2}]' -f $removeGrpMsgVars) -ForegroundColor DarkYellow
+    Remove-ADPrincipalGroupMembership -Identity $obj.ObjectGUID -MemberOf $obj.memberof -Confirm:$False -WhatIf:$WhatIf
+   }
 
-  # Old Groups
-  $oldGroups = $obj.memberof.ForEach( { $_.split(',')[0].TrimStart('CN=') } )
-  if ($oldGroups.count -gt 0) {
-   $removeGrpMsgVars = $MyInvocation.MyCommand.Name, $obj.name, ($oldGroups -join ', ')
-   Write-Host ('{0},{1},REMOVE,Groups: [{2}]' -f $removeGrpMsgVars) -ForegroundColor DarkYellow
-   Remove-ADPrincipalGroupMembership -Identity $obj.ObjectGUID -MemberOf $obj.memberof -Confirm:$False -WhatIf:$WhatIf
+   # New Groups
+   $newGroups = $_.StudentGroup, $_.FilterGroup
+   # Assign Password Policy Group for Secondary students
+   if ([int]$_.grade -ge 6) { $newGroups += 'Password-Students-6-12' }
+   $addGrpMsgVars = $MyInvocation.MyCommand.Name, $obj.name, ($newGroups -join ', ')
+   Write-Host ('{0},{1},ADD,Groups: [{2}],' -f $addGrpMsgVars) -ForegroundColor DarkGreen
+   Add-ADPrincipalGroupMembership -Identity $obj.ObjectGUID -MemberOf $newGroups -WhatIf:$WhatIf
+   Write-Debug $MyInvocation.MyCommand.name
   }
-
-  # New Groups
-  $newGroups = $_.StudentGroup, $_.FilterGroup
-  # Assign Password Policy Group for Secondary students
-  if ([int]$_.grade -ge 6) { $newGroups += 'Password-Students-6-12' }
-  $addGrpMsgVars = $MyInvocation.MyCommand.Name, $obj.name, ($newGroups -join ', ')
-  Write-Host ('{0},{1},ADD,Groups: [{2}],' -f $addGrpMsgVars) -ForegroundColor DarkGreen
-  Add-ADPrincipalGroupMembership -Identity $obj.ObjectGUID -MemberOf $newGroups -WhatIf:$WhatIf
-  Write-Debug $MyInvocation.MyCommand.name
   $_
  }
 }

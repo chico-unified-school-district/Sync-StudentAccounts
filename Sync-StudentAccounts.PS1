@@ -232,7 +232,7 @@ function New-StuADObject {
    New-ADUser @newObjParams -WhatIf:$WhatIf # Create Simple User Object
    # Used for delayed syncing with external systems such as Gsuite and Azure
    # $global:newAzureUsers.Add($_.employeeId)
-   if (-not$WhatIf) { Start-Sleep 3 } # wait while AD replicates
+   if (-not$WhatIf) { Start-Sleep 10 } # wait while AD replicates
   }
   $_
  }

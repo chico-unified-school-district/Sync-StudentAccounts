@@ -116,13 +116,14 @@ function Compare-Data {
  $compareParams = @{
   ReferenceObject  = $AeriesData
   DifferenceObject = $ADData
-  Property         = 'employeeId', 'departmentNumber', 'gecos', 'givenName', 'sn', 'homePage'
+  Property         = 'employeeId', 'departmentNumber', 'gecos', 'givenName', 'sn', 'homePage', 'Enabled'
   Debug            = $false
  }
  $results = Compare-Object @compareParams | Where-Object { $_.sideindicator -eq '<=' }
  $output = foreach ($item in $results) { $AeriesData.Where({ $_.employeeId -eq $item.employeeId }) }
  Write-Verbose ( '{0},Count: {1}' -f $MyInvocation.MyCommand.name, $output.count)
- $output
+ Write-Debug 'Get a move on.'
+ $output | Sort-Object -Descending
 }
 function Connect-ADSession {
  # AD Domain Controller Session
@@ -308,6 +309,10 @@ function Set-ObjAttributes {
     Write-Host ( '{0},{1},Enable User Account' -f $MyInvocation.MyCommand.name, $obj.name) -ForegroundColor Green
     Set-ADUser -identity $obj.ObjectGUID -Enabled:$True -Confirm:$false -WhatIf:$WhatIf
    }
+   if ($obj.AccountExpirationDate -is [datetime]) {
+    Write-Host ( '{0},{1},Clear Account Expiration' -f $MyInvocation.MyCommand.name, $obj.name) -ForegroundColor Green
+    Set-ADUser -identity $obj.ObjectGUID -AccountExpirationDate $null -Confirm:$false -WhatIf:$WhatIf
+   }
   }
   $_
  }
@@ -359,7 +364,7 @@ function Update-ADGroups {
    # Assign Password Policy Group for Secondary students
    if ([int]$_.grade -ge 6) { $newGroups += 'Password-Students-6-12' }
    $addGrpMsgVars = $MyInvocation.MyCommand.Name, $obj.name, ($newGroups -join ', ')
-   Write-Host ('{0},{1},ADD,Groups: [{2}],' -f $addGrpMsgVars) -ForegroundColor DarkGreen
+   Write-Host ('{0},{1},ADD,Groups: [{2}]' -f $addGrpMsgVars) -ForegroundColor DarkGreen
    Add-ADPrincipalGroupMembership -Identity $obj.ObjectGUID -MemberOf $newGroups -WhatIf:$WhatIf
    Write-Debug $MyInvocation.MyCommand.name
   }
@@ -480,7 +485,7 @@ function Sync-Accounts {
  Update-OrgUnit |
  New-StudentHomeDir |
  Update-AeriesStuData |
- # Set-GSuiteStatus |
+ Set-GSuiteStatus |
  # Set-OfficeLicense |
  Complete-StuProcessing
 

@@ -1,5 +1,4 @@
 function Clear-SessionData {
- Write-Verbose 'Clearing session and module data'
- Get-Module -name *tmp* | Remove-Module -Confirm:$false -Force
+ Write-Verbose 'Clearing session data'
  Get-PSSession | Remove-PSSession -Confirm:$false
 }

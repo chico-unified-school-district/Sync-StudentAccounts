@@ -29,3 +29,5 @@ notes.ps1
 /bin/oauth2.txt
 /jenkins.ps1
 /bin/gam.exe
+/Create-HomeDirsParams.ps1
+/params.ps1

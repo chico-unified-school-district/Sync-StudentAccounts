@@ -251,13 +251,13 @@ function New-StudentHomeDir {
         $HomeDirModifyAccess += $_.StaffGroup
         $domain = (Get-ADDomain).name
         $newHomeDirParams = @{
-          FileServer   = $_.FileServer
-          ServerCred   = $FileServerCredential
-          Domain       = $domain
-          Samid        = $obj.samaccountname
-          FullAccess   = $HomeDirFullAccess
-          ModifyAccess = $HomeDirModifyAccess
-          WhatIf       = $WhatIf
+          FileServer = $_.FileServer
+          ServerCred = $FileServerCredential
+          Domain     = $domain
+          Samid      = $obj.samaccountname
+          FullAccess = $HomeDirFullAccess
+          # ModifyAccess = $HomeDirModifyAccess
+          WhatIf     = $WhatIf
         }
         # Write-Verbose ($newHomeDirParams | Out-String)
         New-HomeDir @newHomeDirParams
@@ -279,10 +279,12 @@ function Set-GSuiteStatus {
   process {
     # Check GSuite account and unsuspend if needed
     $gmail = $_.gmail
-   ($gamStatusCheck = .$gam print users query "email:$gmail" fields suspended | ConvertFrom-Csv)*>$null
+    Write-Verbose "& $gam print users query `"email:$gmail`" fields suspended"
+   ($gamStatusCheck = & $gam print users query "email:$gmail" fields suspended | ConvertFrom-Csv)*>$null
     if ($gamStatusCheck.suspended -eq $true) {
       Write-Host ('{0},{1},Activating Account' -f $MyInvocation.MyCommand.name, $gmail)
-      if (-not$WhatIf) { (.$gam update user $gmail suspended off) *>$null }
+      Write-Verbose "& $gam update user $gmail suspended off"
+      if (-not$WhatIf) { (& $gam update user $gmail suspended off) *>$null }
     }
     $_
   }
@@ -344,7 +346,6 @@ function Set-OfficeLicense {
     $_
   }
 }
-
 function Update-ADGroups {
   process {
     Write-Verbose ('{0},{1}' -f $MyInvocation.MyCommand.name, $_.employeeId)

@@ -6,8 +6,6 @@
 *.log
 *.pw
 * =====Sub Directories=====
-*oauth2.txt
-.\lib\gam-64\oauth2.txt
 Archive
 #VS Code Files
 *.vscode
@@ -22,12 +20,14 @@ ehthumbs.db
 # Recycle Bin used on file shares
 $RECYCLE.BIN/
 
-notes.ps1
-/notes.ps1
-/lib/gam-64/oauth2.txt
+# local
 /json/lookupTable.json
-/bin/oauth2.txt
 /jenkins.ps1
-/bin/gam.exe
-/Create-HomeDirsParams.ps1
+/notes.ps1
 /params.ps1
+
+# gam
+*oauth2.txt
+/bin/oauth2.txt
+*roots.pem
+/bin/roots.pem

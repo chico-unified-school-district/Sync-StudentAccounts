@@ -83,7 +83,8 @@ function New-HomeDir {
   }
   if (Test-Path -Path $docsPath) {
     if ((Get-Acl $docsPath).Access.IdentityReference.Value -notcontains $TargetUser) {
-      Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.name, $docsPath) -ForegroundColor Green
+      $uncPath = '\\{0}\UserS\{1}' -f $FileServer, $Samid
+      Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.name, $uncPath) -ForegroundColor Green
       $FullAccess += $ServerCredential.UserName
       $FullAccess | New-FullAccessObj | Add-HomePath | Set-Permissions
       #  $ModifyAccess | New-ModAccessObj | Add-HomePath | Set-Permissions

@@ -515,7 +515,7 @@ function Sync-Accounts {
     Show-TestRun
     Clear-SessionData
     Connect-ADSession
-    Connect-MsolSession
+    # Connect-MsolSession
 
     $results = if ($TestData) { $TestData }
     else {

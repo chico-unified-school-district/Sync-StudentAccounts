@@ -40,7 +40,7 @@ Param(
   [Parameter(Mandatory = $False)]
   $StopTime,
   [Parameter(Mandatory = $False)]
-  [int]$Delay = (60 * 15),
+  [int]$Delay = (60 * 60),
   [Parameter(Mandatory = $True)]
   [Alias('DCs')]
   [string[]]$DomainControllers,
@@ -71,6 +71,18 @@ Param(
   [Alias('wi')]
   [switch]$WhatIf
 )
+
+function Add-GsuiteLicense ($gam) {
+  process {
+    if ($_.gsuiteAccount) {
+      #SKU: 1010310003 = Google Workspace for Education Plus - Legacy (Student)
+      $cmd = "& $gam user {0} add license 1010310003" -f $_.gmail
+      Write-Host ('{0},[{1}]' -f $MyInvocation.MyCommand.Name, $cmd) -F DarkCyan
+      if ($_.gmail -and -not$WhatIf) { (& $gam user $_.gmail add license 1010310003) *>$null }
+    }
+    $_
+  }
+}
 function Add-ObjData {
   begin {
     $lookUpTable = Get-Content -Path .\json\lookupTable.json -Raw | ConvertFrom-Json
@@ -95,6 +107,7 @@ function Add-ObjData {
       $sam = $_.givenName.Substring(0, 1).ToUpper() + $_.sn.Substring(0, 1).ToUpper() + $_.employeeId
       $gmail = ($sam + $GSuiteDomain)
     }
+    $stuData.homePage = $gmail
     Add-Member -InputObject $stuData -NotePropertyName sam -NotePropertyValue $sam
     Add-Member -InputObject $stuData -NotePropertyName gmail -NotePropertyValue $gmail
     Add-Member -InputObject $stuData -NotePropertyName  physicalDeliveryOfficeName -NotePropertyValue $site.SiteName
@@ -103,7 +116,6 @@ function Add-ObjData {
     $stuData
   }
 }
-
 function Compare-Data {
   param (
     $ADData,
@@ -173,7 +185,7 @@ function Get-ActiveAD {
     # $_.LastLogonDate -is [datetime] -and
     $_.Enabled -eq $True
   } | Sort-Object employeeId
-  # Write-Host ('{0}, Count: {1}' -f $MyInvocation.MyCommand.name, $output.count) -ForegroundColor Green
+  # Write-Host ('{0}, Count: {1}' -f $MyInvocation.MyCommand.name, $output.count) -F Green
   $output
 }
 function Get-ActiveAeries {
@@ -187,7 +199,7 @@ function Get-ActiveAeries {
   $sqlColumns = 'departmentNumber', 'employeeId', 'grade', 'sn', 'givenname', 'gecos', 'homePage', 'Enabled'
   $query = Get-Content -Path '.\sql\active-students2.sql' -Raw
   $output = Invoke-SqlCmd @sqlParams -Query $query | Select-Object -Property $sqlColumns
-  # Write-Host ('{0}, Count: {1}' -f $MyInvocation.MyCommand.name, $output.count) -ForegroundColor Green
+  # Write-Host ('{0}, Count: {1}' -f $MyInvocation.MyCommand.name, $output.count) -F Green
   foreach ($row in $output) { $row }
 }
 function Get-StuObject {
@@ -199,16 +211,36 @@ function Get-StuObject {
     $obj
   }
 }
+function Get-GsuiteUser ($gam) {
+  process {
+    if ($_.freshness -ne 'tooFresh') {
+      # Write-Host ('{0},[{1}]' -f $MyInvocation.MyCommand.Name, $_.gmail)
+      ($status = & $gam print users query "email:$gmail" fields suspended | ConvertFrom-Csv)*>$null
+      # If Gsuite account is not yet synced then skip
+      $gsuiteAccount = if ($null -eq $status) {
+        Write-Host ('{0},[{1}], GSuite user NOT found' -f $MyInvocation.MyCommand.Name, $_.gmail) -f Yellow
+        $False
+      }
+      else {
+        Write-Host ('{0},[{1}], GSuite user found' -f $MyInvocation.MyCommand.Name, $_.gmail) -f Green
+        $True
+      }
+      $_ | Add-Member -MemberType NoteProperty -Name gamStatus -Value $status.suspended
+      $_ | Add-Member -MemberType NoteProperty -Name gsuiteAccount -Value $gsuiteAccount
+    }
+    Write-Debug ('{0},[{1}]' -f $MyInvocation.MyCommand.Name, $_.gmail)
+    $_
+  }
+}
 function New-StuADObject {
   begin {
     . .\lib\New-RandomPassword.ps1
   }
   process {
-    Write-Verbose ('{0},{1}' -f $MyInvocation.MyCommand.name, $_.employeeId)
-    # Write-Host ($_ | Out-String) -Fore Green
-    $id = $_.employeeId
-    if ($id) { $obj = Get-ADUser -Filter "employeeId -eq `'$id`'" }
-    else { Write-Warning ('{0}, No employeeId detected' -f $MyInvocation.MyCommand.name) }
+    Write-Verbose ('{0},Checking: [{1}]' -f $MyInvocation.MyCommand.name, $_.employeeId)
+    # Write-Host ($_ | Out-String) -F Green
+    # $id = $_.employeeId
+    $obj = $_ | Get-StuObject
     if (-not$obj) {
       $tempPw = ConvertTo-SecureString -String (New-RandomPassword) -AsPlainText -Force
       #  # EmployeeId is Foreign DB key between AD and Aeries
@@ -225,14 +257,17 @@ function New-StuADObject {
         Description       = 'Student User Account'
         department        = $_.SiteName
       }
-      Write-Host ( '{0},{1}' -f $MyInvocation.MyCommand.name, $_.sam) -ForegroundColor Green
+      Write-Host ( '{0},{1}' -f $MyInvocation.MyCommand.name, $_.sam) -F Green
       # Write-Verbose ($newObjParams | Out-String)
       # Write-Debug ( '{0},{1}' -f $MyInvocation.MyCommand.name, $sam)
       New-ADUser @newObjParams -WhatIf:$WhatIf # Create Simple User Object
       # Used for delayed syncing with external systems such as Gsuite and Azure
       # $global:newAzureUsers.Add($_.employeeId)
       if (-not$WhatIf) { Start-Sleep 10 } # wait while AD replicates
+      # Skip the rest of the creation process until GSuite GADS Syncs
+      return
     }
+    $_ | Add-Member -MemberType NoteProperty -Name created -Value $obj.WhenCreated
     $_
   }
 }
@@ -242,7 +277,7 @@ function New-StudentHomeDir {
   }
   process {
     if ($_.FileServer) {
-      # Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.Name, $_.SiteName) -ForegroundColor Green
+      # Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.Name, $_.SiteName) -F Green
       # Write-Debug ('{0},{1}' -f $MyInvocation.MyCommand.Name, $_.SiteName)
       $obj = $_ | Get-StuObject
       if ($obj) {
@@ -268,23 +303,21 @@ function New-StudentHomeDir {
   }
 }
 function Out-Results {
-  begin { Write-Host ( '{0},Outputing results only' -f $MyInvocation.MyCommand.name) -ForegroundColor Blue }
+  begin { Write-Host ( '{0},Outputing results only' -f $MyInvocation.MyCommand.name) -F Blue }
   process { $_ }
   end { Exit }
 }
-function Set-GSuiteStatus {
-  begin {
-    $gam = '.\bin\gam.exe'
-  }
+function Set-GSuiteStatus ($gam) {
   process {
-    # Check GSuite account and unsuspend if needed
-    $gmail = $_.gmail
-    Write-Verbose "& $gam print users query `"email:$gmail`" fields suspended"
-   ($gamStatusCheck = & $gam print users query "email:$gmail" fields suspended | ConvertFrom-Csv)*>$null
-    if ($gamStatusCheck.suspended -eq $true) {
-      Write-Host ('{0},{1},Activating Account' -f $MyInvocation.MyCommand.name, $gmail)
-      Write-Verbose "& $gam update user $gmail suspended off"
-      if (-not$WhatIf) { (& $gam update user $gmail suspended off) *>$null }
+    if ($_.gsuiteAccount) {
+      $gmail = $_.gmail
+      Write-Verbose "& $gam print users query `"email:$gmail`" fields suspended"
+      # GSuite Suspended to 'OFF' if needed
+      if ($_.gamStatus -eq 'suspended') {
+        Write-Host ('{0},{1},Activating Account' -f $MyInvocation.MyCommand.name, $gmail)
+        Write-Verbose "& $gam update user $gmail suspended off"
+        if (-not$WhatIf) { (& $gam update user $gmail suspended off) *>$null }
+      }
     }
     $_
   }
@@ -292,27 +325,31 @@ function Set-GSuiteStatus {
 function Set-ObjAttributes {
   begin {
     # sql aliases must match AD attribute names
-    $attributeNames = 'sn', 'givenname', 'departmentNumber', 'gecos', 'physicalDeliveryOfficeName', 'department'
+    $attributeNames = 'sn',
+    'givenname', 'departmentNumber', 'gecos', 'physicalDeliveryOfficeName', 'department'
   }
   process {
+    # Only set attributes if gsuite account exists
     Write-Verbose ('{0},{1}' -f $MyInvocation.MyCommand.name, $_.employeeId)
-    # Write-Debug ( '{0},{1}' -f $MyInvocation.MyCommand.name, $_.employeeId)
-    $obj = $_ | Get-StuObject
-    if ($obj) {
-      foreach ($name in $attributeNames) {
-        if ( ($obj.$name -ne $_.$name) -and ($null -ne $_.$name) ) {
-          $formatData = $MyInvocation.MyCommand.name, $obj.employeeId , $name , $obj.$name, $_.$name
-          Write-Host ( '{0},id: [{1}],atrribute: [{2}],current:[{3}], new: [{4}]' -f $formatData) -ForegroundColor Blue
-          Set-ADUser -identity $obj.ObjectGUID -Replace @{$name = $_.$name } -Confirm:$false -WhatIf:$WhatIf
+    if ($_.gsuiteAccount) {
+      Write-Debug ( '{0},{1}' -f $MyInvocation.MyCommand.name, $_.employeeId)
+      $obj = $_ | Get-StuObject
+      if ($obj) {
+        foreach ($name in $attributeNames) {
+          if ( ($obj.$name -ne $_.$name) -and ($null -ne $_.$name) ) {
+            $formatData = $MyInvocation.MyCommand.name, $obj.employeeId , $name , $obj.$name, $_.$name
+            Write-Host ( '{0},id: [{1}],atrribute: [{2}],current:[{3}], new: [{4}]' -f $formatData) -F Blue
+            Set-ADUser -identity $obj.ObjectGUID -Replace @{$name = $_.$name } -Confirm:$false -WhatIf:$WhatIf
+          }
         }
-      }
-      if ($obj.enabled -eq $false) {
-        Write-Host ( '{0},{1},Enable User Account' -f $MyInvocation.MyCommand.name, $obj.name) -ForegroundColor Green
-        Set-ADUser -identity $obj.ObjectGUID -Enabled:$True -Confirm:$false -WhatIf:$WhatIf
-      }
-      if ($obj.AccountExpirationDate -is [datetime]) {
-        Write-Host ( '{0},{1},Clear Account Expiration' -f $MyInvocation.MyCommand.name, $obj.name) -ForegroundColor Green
-        Set-ADUser -identity $obj.ObjectGUID -AccountExpirationDate $null -Confirm:$false -WhatIf:$WhatIf
+        if ($obj.enabled -eq $false) {
+          Write-Host ( '{0},{1},Enable User Account' -f $MyInvocation.MyCommand.name, $obj.name) -F Green
+          Set-ADUser -identity $obj.ObjectGUID -Enabled:$True -Confirm:$false -WhatIf:$WhatIf
+        }
+        if ($obj.AccountExpirationDate -is [datetime]) {
+          Write-Host ( '{0},{1},Clear Account Expiration' -f $MyInvocation.MyCommand.name, $obj.name) -F Green
+          Set-ADUser -identity $obj.ObjectGUID -AccountExpirationDate $null -Confirm:$false -WhatIf:$WhatIf
+        }
       }
     }
     $_
@@ -327,7 +364,7 @@ function Set-OfficeLicense {
       if ( $mobj ) {
         if ($mObj.IsLicensed -eq $false) {
           if (-not$WhatIf) {
-            Write-Host ( '{0},{1},{2}' -f $MyInvocation.MyCommand.name, $obj.name, $MSOnlineLicenseSkuID) -ForegroundColor DarkGreen
+            Write-Host ( '{0},{1},{2}' -f $MyInvocation.MyCommand.name, $obj.name, $MSOnlineLicenseSkuID) -F DarkGreen
             if (-not$WhatIf) {
               $mobj | Set-MsolUser -UserPrincipalName $_.emailWork -UsageLocation US
               $mobj | Set-MsolUserLicense -AddLicenses $MSOnlineLicenseSkuID
@@ -355,7 +392,7 @@ function Update-ADGroups {
       $oldGroups = $obj.memberof.ForEach( { if ($_ -notlike "*studentAdobeCC*") { $_.split(',')[0].TrimStart('CN=') } })
       if ($oldGroups.count -gt 0) {
         $removeGrpMsgVars = $MyInvocation.MyCommand.Name, $obj.name, ($oldGroups -join ', ')
-        Write-Host ('{0},{1},REMOVE,Groups: [{2}]' -f $removeGrpMsgVars) -ForegroundColor DarkYellow
+        Write-Host ('{0},{1},REMOVE,Groups: [{2}]' -f $removeGrpMsgVars) -F DarkYellow
         Remove-ADPrincipalGroupMembership -Identity $obj.ObjectGUID -MemberOf $obj.memberof -Confirm:$False -WhatIf:$WhatIf
       }
 
@@ -364,14 +401,13 @@ function Update-ADGroups {
       # Assign Password Policy Group for Secondary students
       if ([int]$_.grade -ge 6) { $newGroups += 'Password-Students-6-12' }
       $addGrpMsgVars = $MyInvocation.MyCommand.Name, $obj.name, ($newGroups -join ', ')
-      Write-Host ('{0},{1},ADD,Groups: [{2}]' -f $addGrpMsgVars) -ForegroundColor DarkGreen
+      Write-Host ('{0},{1},ADD,Groups: [{2}]' -f $addGrpMsgVars) -F DarkGreen
       Add-ADPrincipalGroupMembership -Identity $obj.ObjectGUID -MemberOf $newGroups -WhatIf:$WhatIf
       Write-Debug $MyInvocation.MyCommand.name
     }
     $_
   }
 }
-
 function Update-AeriesStuData {
   begin {
     'SqlServer' | Load-Module
@@ -384,15 +420,18 @@ function Update-AeriesStuData {
     $baseUpdateStuNid = "Update STU Set stu.nid = `'{0}`' Where stu.id = {1}"
   }
   process {
-    Write-Verbose ('{0},{1}' -f $MyInvocation.MyCommand.Name, $_.employeeId)
-    $checkStuData = Invoke-SQLCmd @sisParams -query ('Select * from stu where id = {0};' -f $_.employeeId)
-    if ( ($checkStuData.sem -notlike $_.gmail) -or ($checkStuData.nid -notlike $_.gmail)) {
-      $updateStuSem = $baseUpdateStuSem -f $_.gmail, $_.employeeId
-      $updateStuNid = $baseUpdateStuNid -f $_.gmail, $_.employeeId
-      Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.Name, $updateStuSem)
-      if (-not$WhatIf) { Invoke-SQLCmd @sisParams -query $updateStuSem }
-      Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.Name, $updateStuNid)
-      if (-not$WhatIf) { Invoke-SQLCmd @sisParams -query $updateStuNid }
+    # Only set SIS data if gsuite account exists
+    if ($_.gsuiteAccount) {
+      Write-Verbose ('{0},{1}' -f $MyInvocation.MyCommand.Name, $_.employeeId)
+      $checkStuData = Invoke-SQLCmd @sisParams -query ('Select * from stu where id = {0};' -f $_.employeeId)
+      if ( ($checkStuData.sem -notlike $_.gmail) -or ($checkStuData.nid -notlike $_.gmail)) {
+        $updateStuSem = $baseUpdateStuSem -f $_.gmail, $_.employeeId
+        $updateStuNid = $baseUpdateStuNid -f $_.gmail, $_.employeeId
+        Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.Name, $updateStuSem)
+        if (-not$WhatIf) { Invoke-SQLCmd @sisParams -query $updateStuSem }
+        Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.Name, $updateStuNid)
+        if (-not$WhatIf) { Invoke-SQLCmd @sisParams -query $updateStuNid }
+      }
     }
     $_
   }
@@ -423,15 +462,28 @@ function Update-OrgUnit {
     if ($obj) {
       $targOrgUnit = $_ | Format-OrgUnitPath
       if ($obj.DistinguishedName -notmatch $targOrgUnit) {
-        Write-Host ( '{0},{1},{2}' -f $MyInvocation.MyCommand.name, $obj.name, $targOrgUnit ) -ForegroundColor Green
+        Write-Host ( '{0},{1},{2}' -f $MyInvocation.MyCommand.name, $obj.name, $targOrgUnit ) -F Green
         Move-ADObject -Identity $obj.DistinguishedName -TargetPath $targOrgUnit -Confirm:$False -WhatIf:$WhatIf
       }
     }
     $_
   }
 }
-filter Complete-StuProcessing {
-  Write-Verbose ('{0} Processing completed.' -f $_.employeeId)
+function Complete-Processing ($count) {
+  begin {
+    $i = 0
+    $countDown = $count
+  }
+  process {
+    $countDown--
+    Write-Host ('{0},Remaining: {1}' -f $MyInvocation.MyCommand.Name, $countDown) -F Green
+    Write-Verbose ('{0} Processing completed.' -f $_.employeeId)
+    Write-Debug 'Continue with next user?'
+    $i++
+  }
+  end {
+    if ($i -gt 0) { Write-Host ('{0}, Total Processed: {1}' -f $MyInvocation.MyCommand.Name, $i) }
+  }
 }
 function Confirm-Recursion {
   $nextRunDelay = $Delay
@@ -453,51 +505,67 @@ filter Skip-BadName {
     Write-Warning ('{0},{1},[{2}]' -f $MyInvocation.MyCommand.Name, $_.employeeId, $_.sam)
   }
 }
+Write-Host ('{0},Start' -f $MyInvocation.MyCommand.name) -f Magenta
+function Sync-Accounts {
+  begin {
+    $gam = '.\bin\gam.exe'
+  }
+  process {
+    Write-Verbose $MyInvocation.MyCommand.name
+    Show-TestRun
+    Clear-SessionData
+    Connect-ADSession
+    Connect-MsolSession
+
+    $results = if ($TestData) { $TestData }
+    else {
+      $activeAD = Get-ActiveAD
+      $activeAeries = Get-ActiveAeries
+      Compare-Data -AeriesData $activeAeries -ADData $activeAD
+    }
+    if ($OutputResults) { $results | Out-Results }
+
+    $results |
+    Sort-Object sn |
+    Add-ObjData |
+    Skip-BadName |
+    New-StuADObject |
+    Wait-GSuiteSync |
+    Get-GsuiteUser $gam |
+    Set-GSuiteStatus $gam |
+    Add-GsuiteLicense $gam |
+    Update-ADGroups |
+    Update-OrgUnit |
+    New-StudentHomeDir |
+    Update-AeriesStuData |
+    Set-ObjAttributes |
+    Complete-Processing $results.count
+
+    Clear-SessionData
+    Show-TestRun
+    if ($StopTime -and (-not$TestData)) {
+      Confirm-Recursion
+      Sync-Accounts
+    }
+  }
+}
+function Wait-GSuiteSync {
+  process {
+    $freshness = if ($_.created -gt (Get-Date).AddMinutes(-60)) { 'tooFresh' } else { 'ok' }
+    Write-Host ('{0},[{1}],[{2}],[{3}]' -f $MyInvocation.MyCommand.Name, $_.sam, $_.created, $freshness) -f Blue
+    $_ | Add-Member -MemberType NoteProperty -Name freshness -Value $freshness
+    $_
+  }
+}
+
+# Process =====================================================
+
 # Import Functions ==========================================
 . .\lib\Clear-SessionData.ps1
 . .\lib\Load-Module
 . .\lib\New-ADSession.ps1
 . .\lib\Select-DomainController.ps1
 . .\lib\Show-TestRun.ps1
-
-# Process =====================================================
-Write-Host ('{0},Start' -f $MyInvocation.MyCommand.name)
-function Sync-Accounts {
-  Write-Verbose $MyInvocation.MyCommand.name
-  Show-TestRun
-  Clear-SessionData
-  Connect-ADSession
-  Connect-MsolSession
-
-  $results = if ($TestData) { $TestData }
-  else {
-    $activeAD = Get-ActiveAD
-    $activeAeries = Get-ActiveAeries
-    Compare-Data -AeriesData $activeAeries -ADData $activeAD
-  }
-  if ($OutputResults) { $results | Out-Results }
-
-  $results |
-  Sort-Object sn |
-  Add-ObjData |
-  Skip-BadName |
-  New-StuADObject |
-  Set-ObjAttributes |
-  Update-ADGroups |
-  Update-OrgUnit |
-  New-StudentHomeDir |
-  Update-AeriesStuData |
-  Set-GSuiteStatus |
-  # Set-OfficeLicense |
-  Complete-StuProcessing
-
-  Clear-SessionData
-  Show-TestRun
-  if ($StopTime -and (-not$TestData)) {
-    Confirm-Recursion
-    Sync-Accounts
-  }
-}
 
 # $global:newAzureUsers = [System.Collection.ArrayList]::new()
 Sync-Accounts

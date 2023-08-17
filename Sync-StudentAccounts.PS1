@@ -60,12 +60,12 @@ Param(
   [string]$SISDatabase,
   [Parameter(Mandatory = $True)]
   [System.Management.Automation.PSCredential]$SISCredential,
-  [Parameter(Mandatory = $True)]
-  [Alias('mscred')]
-  [System.Management.Automation.PSCredential]$MSOLCredential,
-  [Parameter(Mandatory = $True)]
-  [Alias('MsolSku')]
-  [string]$MSOnlineLicenseSkuID,
+  # [Parameter(Mandatory = $True)]
+  # [Alias('mscred')]
+  # [System.Management.Automation.PSCredential]$MSOLCredential,
+  # [Parameter(Mandatory = $True)]
+  # [Alias('MsolSku')]
+  # [string]$MSOnlineLicenseSkuID,
   [Parameter(Mandatory = $True)]
   [string]$GSuiteDomain,
   [Alias('wi')]

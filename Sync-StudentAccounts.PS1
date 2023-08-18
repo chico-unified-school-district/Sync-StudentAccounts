@@ -389,7 +389,11 @@ function Update-ADGroups {
     $obj = $_ | Get-StuObject
     if ($obj) {
       # Old Groups
-      $oldGroups = $obj.memberof.ForEach( { if ($_ -notlike "*studentAdobeCC*") { $_.split(',')[0].TrimStart('CN=') } })
+      $oldGroups = $obj.memberof.ForEach( {
+          if ($_ -notlike "*studentAdobeCC*") {
+            $_.split(',')[0].TrimStart('CN').TrimStart('=')
+          }
+        })
       if ($oldGroups.count -gt 0) {
         $removeGrpMsgVars = $MyInvocation.MyCommand.Name, $obj.name, ($oldGroups -join ', ')
         Write-Host ('{0},{1},REMOVE,Groups: [{2}]' -f $removeGrpMsgVars) -F DarkYellow

@@ -192,9 +192,10 @@ function Get-ActiveAeries {
   Write-Verbose $MyInvocation.MyCommand.name
   'SqlServer' | Load-Module
   $sqlParams = @{
-    Server     = $SISServer
-    Database   = $SISDatabase
-    Credential = $SISCredential
+    Server                 = $SISServer
+    Database               = $SISDatabase
+    Credential             = $SISCredential
+    TrustServerCertificate = $true
   }
   $sqlColumns = 'departmentNumber', 'employeeId', 'grade', 'sn', 'givenname', 'gecos', 'homePage', 'Enabled'
   $query = Get-Content -Path '.\sql\active-students2.sql' -Raw
@@ -416,9 +417,10 @@ function Update-AeriesStuData {
   begin {
     'SqlServer' | Load-Module
     $sisParams = @{
-      Server     = $SISServer
-      Database   = $SISDatabase
-      Credential = $SISCredential
+      Server                 = $SISServer
+      Database               = $SISDatabase
+      Credential             = $SISCredential
+      TrustServerCertificate = $true
     }
     $baseUpdateStuSem = "Update STU Set stu.sem = `'{0}`' Where stu.id = {1}"
     $baseUpdateStuNid = "Update STU Set stu.nid = `'{0}`' Where stu.id = {1}"

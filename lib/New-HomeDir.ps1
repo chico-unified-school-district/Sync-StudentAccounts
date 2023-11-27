@@ -80,7 +80,7 @@ function New-HomeDir {
   New-PSDrive -name $FileServer -Root \\$FileServer\Users -PSProvider FileSystem -Credential $ServerCredential | Out-Null
 
   if (-not(Test-Path $docsPath)) {
-    New-Item -Path $docsPath -ItemType Directory -Confirm:$false -WhatIf:$WhatIf | Out-Null
+    New-Item -Path $docsPath -ItemType Directory -Confirm:$false -WhatIf:$WhatIf
   }
   if (Test-Path -Path $docsPath) {
     if ((Get-Acl $docsPath).Access.IdentityReference.Value -notcontains $TargetUser) {

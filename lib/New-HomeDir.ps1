@@ -65,6 +65,7 @@ function New-HomeDir {
       $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule($_.user, $_.type, 'ContainerInherit,ObjectInherit', 'None', 'Allow')
       # Write-Verbose ( $accessRule | Out-String )
       if (-not($WhatIf)) {
+        Start-Sleep 10
         $acl.SetAccessRule($accessRule)
      (Get-Item $_.somePath).SetAccessControl($acl)
       }

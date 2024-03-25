@@ -488,10 +488,10 @@ function Complete-Processing ($count) {
     $countDown = $count
   }
   process {
-    $countDown--
     Write-Host ('{0},Remaining: {1}' -f $MyInvocation.MyCommand.Name, $countDown) -F Green
     Write-Verbose ('{0} Processing completed.' -f $_.employeeId)
     Write-Debug 'Continue with next user?'
+    $countDown--
     $i++
   }
   end {

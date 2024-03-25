@@ -60,12 +60,6 @@ Param(
   [string]$SISDatabase,
   [Parameter(Mandatory = $True)]
   [System.Management.Automation.PSCredential]$SISCredential,
-  # [Parameter(Mandatory = $True)]
-  # [Alias('mscred')]
-  # [System.Management.Automation.PSCredential]$MSOLCredential,
-  # [Parameter(Mandatory = $True)]
-  # [Alias('MsolSku')]
-  # [string]$MSOnlineLicenseSkuID,
   [Parameter(Mandatory = $True)]
   [string]$GSuiteDomain,
   [Alias('wi')]
@@ -83,6 +77,7 @@ function Add-GsuiteLicense ($gam) {
     $_
   }
 }
+
 function Add-ObjData {
   begin {
     $lookUpTable = Get-Content -Path .\json\lookupTable.json -Raw | ConvertFrom-Json
@@ -116,6 +111,7 @@ function Add-ObjData {
     $stuData
   }
 }
+
 function Compare-Data {
   param (
     $ADData,
@@ -136,6 +132,7 @@ function Compare-Data {
   Write-Debug 'Get a move on.'
   $output | Sort-Object -Descending
 }
+
 function Connect-ADSession {
   # AD Domain Controller Session
   $dc = Select-DomainController $DomainControllers
@@ -151,10 +148,7 @@ function Connect-ADSession {
   )
   New-ADSession -dc $dc -cmdlets $adCmdLets -cred $ADCredential
 }
-function Connect-MsolSession {
-  'MSOnline' | Load-Module
-  Connect-MsolService -Credential $MSOLCredential
-}
+
 function Get-ActiveAD {
   Write-Verbose $MyInvocation.MyCommand.name
   # 'gecos' stores Aeries STU.GR (grade level)
@@ -188,6 +182,7 @@ function Get-ActiveAD {
   # Write-Host ('{0}, Count: {1}' -f $MyInvocation.MyCommand.name, $output.count) -F Green
   $output
 }
+
 function Get-ActiveAeries {
   Write-Verbose $MyInvocation.MyCommand.name
   'SqlServer' | Load-Module
@@ -203,6 +198,7 @@ function Get-ActiveAeries {
   # Write-Host ('{0}, Count: {1}' -f $MyInvocation.MyCommand.name, $output.count) -F Green
   foreach ($row in $output) { $row }
 }
+
 function Get-StuObject {
   process {
     $id = $_.employeeId
@@ -212,8 +208,10 @@ function Get-StuObject {
     $obj
   }
 }
+
 function Get-GsuiteUser ($gam) {
   process {
+    $gmail = $_.gmail
     if ($_.freshness -ne 'tooFresh') {
       # Write-Host ('{0},[{1}]' -f $MyInvocation.MyCommand.Name, $_.gmail)
       ($status = & $gam print users query "email:$gmail" fields suspended | ConvertFrom-Csv)*>$null
@@ -233,6 +231,7 @@ function Get-GsuiteUser ($gam) {
     $_
   }
 }
+
 function New-StuADObject {
   begin {
     . .\lib\New-RandomPassword.ps1
@@ -272,6 +271,7 @@ function New-StuADObject {
     $_
   }
 }
+
 function New-StudentHomeDir {
   begin {
     . .\lib\New-HomeDir.ps1
@@ -308,6 +308,7 @@ function Out-Results {
   process { $_ }
   end { Exit }
 }
+
 function Set-GSuiteStatus ($gam) {
   process {
     if ($_.gsuiteAccount) {
@@ -323,6 +324,7 @@ function Set-GSuiteStatus ($gam) {
     $_
   }
 }
+
 function Set-ObjAttributes {
   begin {
     # sql aliases must match AD attribute names
@@ -356,6 +358,7 @@ function Set-ObjAttributes {
     $_
   }
 }
+
 function Set-OfficeLicense {
   process {
     Write-Verbose ( '{0},{1},{2}' -f $MyInvocation.MyCommand.name, $obj.name, $MSOnlineLicenseSkuID)
@@ -384,6 +387,7 @@ function Set-OfficeLicense {
     $_
   }
 }
+
 function Update-ADGroups {
   process {
     Write-Verbose ('{0},{1}' -f $MyInvocation.MyCommand.name, $_.employeeId)
@@ -413,6 +417,7 @@ function Update-ADGroups {
     $_
   }
 }
+
 function Update-AeriesStuData {
   begin {
     'SqlServer' | Load-Module
@@ -442,6 +447,7 @@ function Update-AeriesStuData {
     $_
   }
 }
+
 function Update-OrgUnit {
   begin {
     function Format-Grade ($grade) {
@@ -475,6 +481,7 @@ function Update-OrgUnit {
     $_
   }
 }
+
 function Complete-Processing ($count) {
   begin {
     $i = 0
@@ -491,6 +498,7 @@ function Complete-Processing ($count) {
     if ($i -gt 0) { Write-Host ('{0}, Total Processed: {1}' -f $MyInvocation.MyCommand.Name, $i) }
   }
 }
+
 function Confirm-Recursion {
   $nextRunDelay = $Delay
   $nextRunTime = Get-Date ((Get-Date).AddSeconds($nextRunDelay)) -Format "h:mm:ss tt"
@@ -505,13 +513,16 @@ function Confirm-Recursion {
     Exit
   }
 }
+
 filter Skip-BadName {
   if ($_.sam -match "^[A-Z][A-Z]\d{5,6}$") { $_ }
   else {
     Write-Warning ('{0},{1},[{2}]' -f $MyInvocation.MyCommand.Name, $_.employeeId, $_.sam)
   }
 }
+
 Write-Host ('{0},Start' -f $MyInvocation.MyCommand.name) -f Magenta
+
 function Sync-Accounts {
   begin {
     $gam = '.\bin\gam.exe'
@@ -555,6 +566,7 @@ function Sync-Accounts {
     }
   }
 }
+
 function Wait-GSuiteSync {
   process {
     $freshness = if ($_.created -gt (Get-Date).AddMinutes(-60)) { 'tooFresh' } else { 'ok' }

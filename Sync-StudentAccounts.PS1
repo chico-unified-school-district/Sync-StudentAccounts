@@ -548,6 +548,7 @@ function Sync-Accounts {
     Skip-BadName |
     New-StuADObject |
     Wait-GSuiteSync |
+    Restore-GSuiteDeleted $gam |
     Get-GsuiteUser $gam |
     Set-GSuiteStatus $gam |
     Add-GsuiteLicense $gam |
@@ -572,6 +573,18 @@ function Wait-GSuiteSync {
     $freshness = if ($_.created -gt (Get-Date).AddMinutes(-60)) { 'tooFresh' } else { 'ok' }
     Write-Host ('{0},[{1}],[{2}],[{3}]' -f $MyInvocation.MyCommand.Name, $_.sam, $_.created, $freshness) -f Blue
     $_ | Add-Member -MemberType NoteProperty -Name freshness -Value $freshness
+    $_
+  }
+}
+
+function Restore-GSuiteDeleted ($gam) {
+  begin {
+  ($deletedGSuite = & $gam print users deleted_only | ConvertFrom-Csv) *>$null
+  }
+  process {
+    if ($deletedGSuite.primaryEmail -notmatch $_.gmail) { return $_ }
+    Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.Name, $_.gmail)
+    if (!$WhatIf) { (& $gam undelete user $_.gmail) *>$null }
     $_
   }
 }

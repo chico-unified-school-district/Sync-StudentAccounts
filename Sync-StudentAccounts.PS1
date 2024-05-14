@@ -547,8 +547,8 @@ function Sync-Accounts {
     Add-ObjData |
     Skip-BadName |
     New-StuADObject |
-    Wait-GSuiteSync |
     Restore-GSuiteDeleted $gam |
+    Wait-GSuiteSync |
     Get-GsuiteUser $gam |
     Set-GSuiteStatus $gam |
     Add-GsuiteLicense $gam |

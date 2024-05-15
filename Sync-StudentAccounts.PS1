@@ -521,7 +521,7 @@ filter Skip-BadName {
   }
 }
 
-Write-Host ('{0},Start' -f $MyInvocation.MyCommand.name) -f Magenta
+Write-Host ('{0},Start' -f $MyInvocation.MyCommand.name) -f Blue
 
 function Sync-Accounts {
   begin {

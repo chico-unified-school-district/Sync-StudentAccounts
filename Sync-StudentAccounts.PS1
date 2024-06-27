@@ -70,7 +70,8 @@ function Add-GsuiteLicense ($gam) {
   process {
     if ($_.gsuiteAccount) {
       #SKU: 1010310003 = Google Workspace for Education Plus - Legacy (Student)
-      $cmd = "& $gam user {0} add license 1010310003" -f $_.gmail
+      #SKU: 1010310008 = Google Workspace for Education Plus
+      $cmd = "& $gam user {0} add license 1010310008" -f $_.gmail
       Write-Host ('{0},[{1}]' -f $MyInvocation.MyCommand.Name, $cmd) -F DarkCyan
       if ($_.gmail -and -not$WhatIf) { (& $gam user $_.gmail add license 1010310003) *>$null }
     }

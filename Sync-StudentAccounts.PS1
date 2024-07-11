@@ -108,6 +108,7 @@ function Add-ObjData {
     Add-Member -InputObject $stuData -NotePropertyName gmail -NotePropertyValue $gmail
     Add-Member -InputObject $stuData -NotePropertyName  physicalDeliveryOfficeName -NotePropertyValue $site.SiteName
     Add-Member -InputObject $stuData -NotePropertyName  department -NotePropertyValue $site.SiteName
+    Add-Member -InputObject $stuData -NotePropertyName  MyShare -NotePropertyValue $site.ShareName
     Write-Verbose ($stuData | Out-String)
     $stuData
   }
@@ -147,7 +148,7 @@ function Connect-ADSession {
     'Remove-ADPrincipalGroupMembership'
     'Add-ADPrincipalGroupMembership'
   )
-  New-ADSession -dc $dc -cmdlets $adCmdLets -cred $ADCredential
+  New-ADSession -dc $dc -cmdlets $adCmdLets -myUser $ADCredential
 }
 
 function Get-ActiveAD {
@@ -186,7 +187,8 @@ function Get-ActiveAD {
 
 function Get-ActiveAeries {
   Write-Verbose $MyInvocation.MyCommand.name
-  'SqlServer' | Load-Module
+  # 'SqlServer' | Load-Module
+  Import-Module 'SqlServer'
   $sqlParams = @{
     Server                 = $SISServer
     Database               = $SISDatabase
@@ -289,6 +291,7 @@ function New-StudentHomeDir {
         $domain = (Get-ADDomain).name
         $newHomeDirParams = @{
           FileServer = $_.FileServer
+          MyShare    = $_.MyShare
           ServerCred = $FileServerCredential
           Domain     = $domain
           Samid      = $obj.samaccountname
@@ -395,11 +398,11 @@ function Update-ADGroups {
     $obj = $_ | Get-StuObject
     if ($obj) {
       # Old Groups
-      $oldGroups = $obj.memberof.ForEach( {
-          if ($_ -notlike "*studentAdobeCC*") {
-            $_.split(',')[0].TrimStart('CN').TrimStart('=')
-          }
-        })
+      $oldGroups = $obj.memberof | ForEach-Object {
+        if ($_ -notlike "*studentAdobeCC*") {
+          $_.split(',')[0].TrimStart('CN').TrimStart('=')
+        }
+      }
       if ($oldGroups.count -gt 0) {
         $removeGrpMsgVars = $MyInvocation.MyCommand.Name, $obj.name, ($oldGroups -join ', ')
         Write-Host ('{0},{1},REMOVE,Groups: [{2}]' -f $removeGrpMsgVars) -F DarkYellow
@@ -533,7 +536,6 @@ function Sync-Accounts {
     Show-TestRun
     Clear-SessionData
     Connect-ADSession
-    # Connect-MsolSession
 
     $results = if ($TestData) { $TestData }
     else {

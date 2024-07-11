@@ -9,6 +9,8 @@ function New-HomeDir {
     [ValidateScript( { Test-Connection -ComputerName $_ -Quiet -Count 1 })]
     [string]$FileServer,
     [Parameter(Mandatory = $True)]
+    [string]$MyShare,
+    [Parameter(Mandatory = $True)]
     [System.Management.Automation.PSCredential]$ServerCredential,
     [string]$Domain,
     [Parameter(Mandatory = $True)]
@@ -77,14 +79,14 @@ function New-HomeDir {
   $homePath = "$FileServer`:\$samid"
   $docsPath = "$FileServer`:\$samid\Documents"
 
-  New-PSDrive -name $FileServer -Root \\$FileServer\Users -PSProvider FileSystem -Credential $ServerCredential | Out-Null
+  New-PSDrive -name $FileServer -Root \\$FileServer\$MyShare -PSProvider FileSystem -Credential $ServerCredential | Out-Null
 
   if (-not(Test-Path $docsPath)) {
     New-Item -Path $docsPath -ItemType Directory -Confirm:$false -WhatIf:$WhatIf
   }
   if (Test-Path -Path $docsPath) {
     if ((Get-Acl $docsPath).Access.IdentityReference.Value -notcontains $TargetUser) {
-      $uncPath = '\\{0}\UserS\{1}' -f $FileServer, $Samid
+      $uncPath = "\\{0}\{1}\{2}" -f $FileServer, $MyShare, $Samid
       Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.name, $uncPath) -ForegroundColor Green
       $FullAccess += $ServerCredential.UserName
       $FullAccess | New-FullAccessObj | Add-HomePath | Set-Permissions

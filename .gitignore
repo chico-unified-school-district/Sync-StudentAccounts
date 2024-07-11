@@ -31,3 +31,4 @@ $RECYCLE.BIN/
 /bin/oauth2.txt
 *roots.pem
 /bin/roots.pem
+/Fix-StudentSharePerms.ps1

@@ -7,7 +7,7 @@ function New-ADSession ($dcs, $adUser, $cmdlets) {
   }
   Start-Sleep 10 # If connections to all dcs fail then wait before trying again
  }
- $session = New-PSSession -ComputerName $adDC -Credential $adUser
+ $session = New-PSSession -ComputerName $global:dc -Credential $adUser
  Import-PSSession -Session $session -Module ActiveDirectory -CommandName $cmdlets -AllowClobber | Out-Null
  $msgVars = $MyInvocation.MyCommand.Name, $dc, ($cmdLets -join ',')
  Write-Verbose ('{0},{1}' -f $msgVars)

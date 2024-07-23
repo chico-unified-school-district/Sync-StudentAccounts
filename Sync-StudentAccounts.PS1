@@ -521,7 +521,7 @@ filter Skip-BadName {
 
 Write-Host ('{0},Start' -f $MyInvocation.MyCommand.name) -f Blue
 
-function Sync-Accounts ($dcs, $adUser, $cmdlets) {
+function Sync-Accounts {
   begin {
     $gam = '.\bin\gam.exe'
   }
@@ -529,8 +529,8 @@ function Sync-Accounts ($dcs, $adUser, $cmdlets) {
     Write-Verbose $MyInvocation.MyCommand.name
     Show-TestRun
     Clear-SessionData
-    # Connect-ADSession
-    New-ADSession $dcs $adUser $cmdlets
+    Connect-ADSession
+
     $results = if ($TestData) { $TestData }
     else {
       $activeAD = Get-ActiveAD
@@ -590,26 +590,14 @@ function Restore-GSuiteDeleted ($gam) {
 
 # Import Functions ==========================================
 . .\lib\Clear-SessionData.ps1
-# . .\lib\Load-Module
+. .\lib\Load-Module
 . .\lib\New-ADSession.ps1
-# . .\lib\Select-DomainController.ps1
+. .\lib\Select-DomainController.ps1
 . .\lib\Show-TestRun.ps1
 
 # $global:newAzureUsers = [System.Collection.ArrayList]::new()
 # 'SqlServer' | Load-Module
-
-$adCmdLets = @(
-  'Get-ADDomain'
-  'Get-ADUser'
-  'Set-ADUser'
-  'New-ADUser'
-  'Move-ADObject'
-  'Rename-ADObject'
-  'Remove-ADPrincipalGroupMembership'
-  'Add-ADPrincipalGroupMembership'
-)
-
-Clear-SessionData
 Import-Module 'SqlServer' -Cmdlet 'Invoke-SQLCmd'
-Sync-Accounts $DomainControllers $ADCredential $adCmdLets
-Clear-SessionData.
+
+Sync-Accounts
+Write-Verbose ( '{0},End' -f $MyInvocation.MyCommand.name )

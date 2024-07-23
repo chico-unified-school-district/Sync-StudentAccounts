@@ -187,8 +187,6 @@ function Get-ActiveAD {
 
 function Get-ActiveAeries {
   Write-Verbose $MyInvocation.MyCommand.name
-  # 'SqlServer' | Load-Module
-  Import-Module 'SqlServer'
   $sqlParams = @{
     Server                 = $SISServer
     Database               = $SISDatabase
@@ -424,7 +422,6 @@ function Update-ADGroups {
 
 function Update-AeriesStuData {
   begin {
-    'SqlServer' | Load-Module
     $sisParams = @{
       Server                 = $SISServer
       Database               = $SISDatabase
@@ -487,15 +484,12 @@ function Update-OrgUnit {
 }
 
 function Complete-Processing ($count) {
-  begin {
-    $i = 0
-    $countDown = $count
-  }
+  begin { $i = 0 }
   process {
-    Write-Host ('{0},Remaining: {1}' -f $MyInvocation.MyCommand.Name, $countDown) -F Green
+    Write-Host ('{0},{1},Remaining: {2}' -f $MyInvocation.MyCommand.Name, $_.employeeId, $count) -F Magenta
     Write-Verbose ('{0} Processing completed.' -f $_.employeeId)
     Write-Debug 'Continue with next user?'
-    $countDown--
+    $count--
     $i++
   }
   end {
@@ -527,7 +521,7 @@ filter Skip-BadName {
 
 Write-Host ('{0},Start' -f $MyInvocation.MyCommand.name) -f Blue
 
-function Sync-Accounts {
+function Sync-Accounts ($dcs, $adUser, $cmdlets) {
   begin {
     $gam = '.\bin\gam.exe'
   }
@@ -535,8 +529,8 @@ function Sync-Accounts {
     Write-Verbose $MyInvocation.MyCommand.name
     Show-TestRun
     Clear-SessionData
-    Connect-ADSession
-
+    # Connect-ADSession
+    New-ADSession $dcs $adUser $cmdlets
     $results = if ($TestData) { $TestData }
     else {
       $activeAD = Get-ActiveAD
@@ -596,11 +590,26 @@ function Restore-GSuiteDeleted ($gam) {
 
 # Import Functions ==========================================
 . .\lib\Clear-SessionData.ps1
-. .\lib\Load-Module
+# . .\lib\Load-Module
 . .\lib\New-ADSession.ps1
-. .\lib\Select-DomainController.ps1
+# . .\lib\Select-DomainController.ps1
 . .\lib\Show-TestRun.ps1
 
 # $global:newAzureUsers = [System.Collection.ArrayList]::new()
-Sync-Accounts
-Write-Verbose ( '{0},End' -f $MyInvocation.MyCommand.name )
+# 'SqlServer' | Load-Module
+
+$adCmdLets = @(
+  'Get-ADDomain'
+  'Get-ADUser'
+  'Set-ADUser'
+  'New-ADUser'
+  'Move-ADObject'
+  'Rename-ADObject'
+  'Remove-ADPrincipalGroupMembership'
+  'Add-ADPrincipalGroupMembership'
+)
+
+Clear-SessionData
+Import-Module 'SqlServer' -Cmdlet 'Invoke-SQLCmd'
+Sync-Accounts $DomainControllers $ADCredential $adCmdLets
+Clear-SessionData.

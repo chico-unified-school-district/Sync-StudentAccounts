@@ -597,7 +597,7 @@ function Restore-GSuiteDeleted ($gam) {
 
 # $global:newAzureUsers = [System.Collection.ArrayList]::new()
 # 'SqlServer' | Load-Module
-Import-Module 'SqlServer' -Cmdlet 'Invoke-SQLCmd'
+Import-Module 'SqlServer' -Cmdlet Invoke-SQLCmd
 
 Sync-Accounts
 Write-Verbose ( '{0},End' -f $MyInvocation.MyCommand.name )

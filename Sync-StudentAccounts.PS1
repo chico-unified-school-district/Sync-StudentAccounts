@@ -91,6 +91,7 @@ function Add-ObjData {
     # Write-Verbose ($stuData | Out-String)
     $deptNum = $_.departmentNumber
     $site = $lookUpTable.Where({ [int]$_.SiteCode -eq [int]$deptNum }) | ConvertTo-Csv | ConvertFrom-Csv
+    if (!$site) { return }
     foreach ($prop in $tableProps) {
       Add-Member -InputObject $stuData -NotePropertyName $prop -NotePropertyValue $site.$prop
     }
@@ -401,19 +402,34 @@ function Update-ADGroups {
           $_.split(',')[0].TrimStart('CN').TrimStart('=')
         }
       }
-      if ($oldGroups.count -gt 0) {
+      if ($oldGroups.count -and $oldGroups.count -gt 0) {
         $removeGrpMsgVars = $MyInvocation.MyCommand.Name, $obj.name, ($oldGroups -join ', ')
         Write-Host ('{0},{1},REMOVE,Groups: [{2}]' -f $removeGrpMsgVars) -F DarkYellow
-        Remove-ADPrincipalGroupMembership -Identity $obj.ObjectGUID -MemberOf $obj.memberof -Confirm:$False -WhatIf:$WhatIf
+        $removeGroups = @{
+          Identity    = $obj.ObjectGUID
+          Memberof    = $obj.memberof
+          Confirm     = $False
+          WhatIf      = $WhatIf
+          ErrorAction = 'Stop'
+        }
+        Remove-ADPrincipalGroupMembership @removeGroups
       }
 
       # New Groups
       $newGroups = $_.StudentGroup, $_.FilterGroup
       # Assign Password Policy Group for Secondary students
+      if (!($_.SiteCode)) { return Write-Warning ('{0},{1},No site' -f $MyInvocation.MyCommand.Name, $_.Samid) }
       if ([int]$_.grade -ge 6) { $newGroups += 'Password-Students-6-12' }
-      $addGrpMsgVars = $MyInvocation.MyCommand.Name, $obj.name, ($newGroups -join ', ')
-      Write-Host ('{0},{1},ADD,Groups: [{2}]' -f $addGrpMsgVars) -F DarkGreen
-      Add-ADPrincipalGroupMembership -Identity $obj.ObjectGUID -MemberOf $newGroups -WhatIf:$WhatIf
+      $addGrpMsgVars = $MyInvocation.MyCommand.Name, $obj.name, ($newGroups -join ', '), $_.SiteCode
+      Write-Host ('{0},{1},ADD,Groups: [{2}],{3}' -f $addGrpMsgVars) -F DarkGreen
+      $addGroups = @{
+        Identity    = $obj.ObjectGUID
+        Memberof    = $newGroups
+        Confirm     = $False
+        WhatIf      = $WhatIf
+        ErrorAction = 'Stop'
+      }
+      Add-ADPrincipalGroupMembership @addGroups
       Write-Debug $MyInvocation.MyCommand.name
     }
     $_
@@ -484,16 +500,17 @@ function Update-OrgUnit {
 }
 
 function Complete-Processing ($count) {
-  begin { $i = 0 }
+  # begin { $i = 0 }
   process {
-    Write-Host ('{0},{1},Remaining: {2}' -f $MyInvocation.MyCommand.Name, $_.employeeId, $count) -F Magenta
+    Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.Name, $_.employeeId) -F Magenta
+    # Write-Host ('{0},{1},Remaining: {2}' -f $MyInvocation.MyCommand.Name, $_.employeeId, $count) -F Magenta
     Write-Verbose ('{0} Processing completed.' -f $_.employeeId)
     Write-Debug 'Continue with next user?'
-    $count--
-    $i++
+    # $count--
+    # $i++
   }
   end {
-    if ($i -gt 0) { Write-Host ('{0}, Total Processed: {1}' -f $MyInvocation.MyCommand.Name, $i) }
+    # if ($i -gt 0) { Write-Host ('{0}, Total Processed: {1}' -f $MyInvocation.MyCommand.Name, $i) }
   }
 }
 
@@ -513,7 +530,8 @@ function Confirm-Recursion {
 }
 
 filter Skip-BadName {
-  if ($_.sam -match "^[A-Z][A-Z]\d{5,6}$") { $_ }
+  # Skips processing if first and/or last name is missing. Includes latin characters.
+  if ($_.sam -match "^[A-Z|\p{L}][A-Z|\p{L}]\d{5,}$") { $_ }
   else {
     Write-Warning ('{0},{1},[{2}]' -f $MyInvocation.MyCommand.Name, $_.employeeId, $_.sam)
   }

@@ -67,7 +67,7 @@ function New-HomeDir {
       $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule($_.user, $_.type, 'ContainerInherit,ObjectInherit', 'None', 'Allow')
       # Write-Verbose ( $accessRule | Out-String )
       if (-not($WhatIf)) {
-        Start-Sleep 10
+        # Start-Sleep 5
         $acl.SetAccessRule($accessRule)
      (Get-Item $_.somePath).SetAccessControl($acl)
       }
@@ -88,6 +88,7 @@ function New-HomeDir {
     if ((Get-Acl $docsPath).Access.IdentityReference.Value -notcontains $TargetUser) {
       $uncPath = "\\{0}\{1}\{2}" -f $FileServer, $MyShare, $Samid
       Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.name, $uncPath) -ForegroundColor Green
+      if (-not($WhatIf)) { Start-Sleep 5 }
       $FullAccess += $ServerCredential.UserName
       $FullAccess | New-FullAccessObj | Add-HomePath | Set-Permissions
       #  $ModifyAccess | New-ModAccessObj | Add-HomePath | Set-Permissions

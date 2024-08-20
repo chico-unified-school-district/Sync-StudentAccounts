@@ -20,7 +20,7 @@ FROM STU AS s
 --  e.sn = s.sn
 WHERE
 (s.FN IS NOT NULL AND s.LN IS NOT NULL)
-AND s.SC IN ( 1,2,3,5,6,7,8,9,10,11,12,13,16,17,18,19,20,21,23,24,25,26,27,28,42,43,91,999 )
+-- AND s.SC IN ( 1,2,3,5,6,7,8,9,10,11,12,13,16,17,18,19,20,21,23,24,25,26,27,28,30,42,43,91,999 )
 AND ( (s.del = 0) OR (s.del IS NULL) ) AND  ( s.tg = ' ' )
 --AND s.ID IN (12345,12346)
 ORDER by s.id;

@@ -1,1 +1,6 @@
 /bin
+/jenkins.ps1
+/notes.ps1
+/params.ps1
+/json/lookupTable.json
+/json/lookupTable.old

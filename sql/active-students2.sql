@@ -1,4 +1,4 @@
-SELECT DISTINCT
+ SELECT
  s.SC AS departmentNumber,
  s.ID AS employeeid,
  s.GR AS grade,
@@ -12,15 +12,18 @@ SELECT DISTINCT
 FROM STU AS s
  INNER JOIN
  (
-    select id,tg,min(sc) AS minsc
-    from stu group by id,tg having tg = ' '
+    SELECT
+     id
+     ,tg
+     ,min(sc) AS minsc
+    FROM stu
+    WHERE del = 0
+     GROUP BY id,tg having tg = ' '
     ) AS gs
- ON ( s.id = gs.id and s.sc = gs.minsc )
---  INNER JOIN ENR AS e
---  e.sn = s.sn
+ ON ( s.id = gs.id AND s.sc = gs.minsc )
 WHERE
 (s.FN IS NOT NULL AND s.LN IS NOT NULL)
 -- AND s.SC IN ( 1,2,3,5,6,7,8,9,10,11,12,13,16,17,18,19,20,21,23,24,25,26,27,28,30,42,43,91,999 )
 AND ( (s.del = 0) OR (s.del IS NULL) ) AND  ( s.tg = ' ' )
---AND s.ID IN (12345,12346)
+AND s.ID = 75376
 ORDER by s.id;

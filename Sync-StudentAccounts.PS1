@@ -130,7 +130,7 @@ function Compare-Data {
     Debug            = $false
   }
   $results = Compare-Object @compareParams | Where-Object { $_.sideindicator -eq '<=' }
-  $output = foreach ($item in $results) { $AeriesData.Where({ $_.employeeId -eq $item.employeeId }) }
+  $output = foreach ($item in $results) { $AeriesData | Where-Object { $_.employeeId -eq $item.employeeId } }
   Write-Verbose ( '{0},Count: {1}' -f $MyInvocation.MyCommand.name, $output.count)
   Write-Debug 'Get a move on.'
   $output | Sort-Object -Descending

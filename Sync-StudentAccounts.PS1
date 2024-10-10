@@ -182,7 +182,7 @@ function Get-ActiveAD {
     # $_.LastLogonDate -is [datetime] -and
     $_.Enabled -eq $True
   } | Sort-Object employeeId
-  # Write-Host ('{0}, Count: {1}' -f $MyInvocation.MyCommand.name, $output.count) -F Green
+  Write-Verbose ('{0}, Count: {1}' -f $MyInvocation.MyCommand.name, $output.count)
   $output
 }
 
@@ -197,7 +197,7 @@ function Get-ActiveAeries {
   $sqlColumns = 'departmentNumber', 'employeeId', 'grade', 'sn', 'givenname', 'gecos', 'homePage', 'Enabled'
   $query = Get-Content -Path '.\sql\active-students2.sql' -Raw
   $output = Invoke-SqlCmd @sqlParams -Query $query | Select-Object -Property $sqlColumns
-  # Write-Host ('{0}, Count: {1}' -f $MyInvocation.MyCommand.name, $output.count) -F Green
+  Write-Verbose ('{0}, Count: {1}' -f $MyInvocation.MyCommand.name, $output.count)
   foreach ($row in $output) { $row }
 }
 

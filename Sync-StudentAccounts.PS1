@@ -79,6 +79,18 @@ function Add-GsuiteLicense ($gam) {
   }
 }
 
+function Add-MissingGrade {
+  process {
+    Write-Host ('{0}' -f $MyInvocation.MyCommand.Name)
+    $obj = $_ | Get-StuObject
+    if ($obj.gecos) { return $_ }
+    Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.Name, $_.samid)
+    # set grade (gecos) to 0 for elementary and set it to 100 for non-elementary
+    $tempGrade = if ($_.Department -match 'Elementary') { 0 } else { 100 }
+    Set-ADUser -Identity $_.guid -gecos $tempGrade
+  }
+}
+
 function Add-ObjData {
   begin {
     $lookUpTable = Get-Content -Path .\json\lookupTable.json -Raw | ConvertFrom-Json
@@ -158,6 +170,7 @@ function Get-ActiveAD {
   $adProperties = @(
     'employeeId'
     'departmentNumber'
+    'department'
     'gecos'
     'givenname'
     'sn'
@@ -572,6 +585,7 @@ function Sync-Accounts {
     New-StudentHomeDir |
     Update-AeriesStuData |
     Set-ObjAttributes |
+    Add-MissingGrade |
     Complete-Processing $results.count
 
     Clear-SessionData

@@ -87,7 +87,7 @@ function Add-MissingGrade {
     Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.Name, $obj.samAccountName)
     # set grade (gecos) to 0 for elementary and set it to 100 for non-elementary
     $tempGrade = if ($_.Department -match 'Elementary') { 0 } else { 100 }
-    Set-ADUser -Identity $obj.ObjectGUID -replace @{gecos = $tempGrade } -WhatIf:$WhatIf -ErrorAction Stop
+    Set-ADUser -Identity $obj.ObjectGUID -replace @{gecos = $tempGrade } -WhatIf:$WhatIf
   }
 }
 

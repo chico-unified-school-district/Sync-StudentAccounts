@@ -82,11 +82,12 @@ function Add-GsuiteLicense ($gam) {
 function Add-MissingGrade {
   process {
     $obj = $_ | Get-StuObject
+    if (!$obj) { return }
     if ($obj.gecos) { return $_ }
     Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.Name, $obj.samAccountName)
     # set grade (gecos) to 0 for elementary and set it to 100 for non-elementary
     $tempGrade = if ($_.Department -match 'Elementary') { 0 } else { 100 }
-    Set-ADUser -Identity $obj.ObjectGUID -replace @{gecos = $tempGrade } -WhatIf:$WhatIf
+    Set-ADUser -Identity $obj.ObjectGUID -replace @{gecos = $tempGrade } -WhatIf:$WhatIf -ErrorAction Stop
   }
 }
 
@@ -543,7 +544,7 @@ function Confirm-Recursion {
 
 filter Skip-BadName {
   # Skips processing if first and/or last name is missing. Includes latin characters.
-  if ($_.sam -match "^[A-Z|\p{L}][A-Z|\p{L}]\d{5,}$") { $_ }
+  if ($_.sam -match "^[A-Z|\p{L}][A-Z|\p{L}]\d{5,}$") { return $_ }
   else {
     Write-Warning ('{0},{1},[{2}]' -f $MyInvocation.MyCommand.Name, $_.employeeId, $_.sam)
   }

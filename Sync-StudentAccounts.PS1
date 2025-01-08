@@ -83,7 +83,7 @@ function Add-MissingGrade {
   process {
     $obj = $_ | Get-StuObject
     if ($obj.gecos) { return $_ }
-    Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.Name, $_.samid)
+    Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.Name, $obj.samAccountName)
     # set grade (gecos) to 0 for elementary and set it to 100 for non-elementary
     $tempGrade = if ($_.Department -match 'Elementary') { 0 } else { 100 }
     Set-ADUser -Identity $obj.ObjectGUID -replace @{gecos = $tempGrade } -WhatIf:$WhatIf
@@ -108,7 +108,7 @@ function Add-ObjData {
     }
     $obj = $_ | Get-StuObject
     if ($obj) {
-      $sam = $obj.samaccountname
+      $sam = $obj.samAccountName
       $gmail = $obj.homePage
     }
     else {
@@ -187,7 +187,7 @@ function Get-ActiveAD {
   }
 
   $output = Get-ADUser @allStuParams | Where-Object {
-    $_.samaccountname -match "^\b[a-zA-Z][a-zA-Z]\d{5,6}\b$" -and
+    $_.samAccountName -match "^\b[a-zA-Z][a-zA-Z]\d{5,6}\b$" -and
     # $_.employeeId -match "^\d{5,6}$" -and
     $_.title -notmatch 'test' -and
     $_.AccountExpirationDate -isnot [datetime] -and
@@ -296,7 +296,7 @@ function New-StudentHomeDir {
       # Write-Debug ('{0},{1}' -f $MyInvocation.MyCommand.Name, $_.SiteName)
       $obj = $_ | Get-StuObject
       if ($obj) {
-        Write-Verbose ('{0},{1}' -f $MyInvocation.MyCommand.name, $obj.samaccountname)
+        Write-Verbose ('{0},{1}' -f $MyInvocation.MyCommand.name, $obj.samAccountName)
         # Write-Host ( '{0},{1},{2}' -f $MyInvocation.MyCommand.name, $sam, $site.FileServer)
         $HomeDirModifyAccess += $_.StaffGroup
         $domain = (Get-ADDomain).name
@@ -305,7 +305,7 @@ function New-StudentHomeDir {
           MyShare    = $_.MyShare
           ServerCred = $FileServerCredential
           Domain     = $domain
-          Samid      = $obj.samaccountname
+          Samid      = $obj.samAccountName
           FullAccess = $HomeDirFullAccess
           # ModifyAccess = $HomeDirModifyAccess
           WhatIf     = $WhatIf

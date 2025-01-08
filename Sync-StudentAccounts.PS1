@@ -87,7 +87,7 @@ function Add-MissingGrade {
     Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.Name, $_.samid)
     # set grade (gecos) to 0 for elementary and set it to 100 for non-elementary
     $tempGrade = if ($_.Department -match 'Elementary') { 0 } else { 100 }
-    Set-ADUser -Identity $_.guid -gecos $tempGrade
+    Set-ADUser -Identity $_.guid -replace @{gecos = $tempGrade } -WhatIf:$WhatIf
   }
 }
 
@@ -357,7 +357,7 @@ function Set-ObjAttributes {
         foreach ($name in $attributeNames) {
           if ( ($obj.$name -ne $_.$name) -and ($null -ne $_.$name) ) {
             $formatData = $MyInvocation.MyCommand.name, $obj.employeeId , $name , $obj.$name, $_.$name
-            Write-Host ( '{0},id: [{1}],atrribute: [{2}],current:[{3}], new: [{4}]' -f $formatData) -F Blue
+            Write-Host ( '{0},id: [{1}],attribute: [{2}],current:[{3}], new: [{4}]' -f $formatData) -F Blue
             Set-ADUser -identity $obj.ObjectGUID -Replace @{$name = $_.$name } -Confirm:$false -WhatIf:$WhatIf
           }
         }

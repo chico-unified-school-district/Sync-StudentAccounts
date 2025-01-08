@@ -182,7 +182,7 @@ function Get-ActiveAD {
     'Enabled'
   )
   $allStuParams = @{
-    Filter     = { (homePage -like "*@*") -and (employeeId -like "*") }
+    Filter     = "homePage -like '*@*' -and employeeId -like '*'"
     SearchBase = 'OU=Students,OU=Users,OU=Domain_Root,DC=chico,DC=usd'
     Properties = $adProperties
   }

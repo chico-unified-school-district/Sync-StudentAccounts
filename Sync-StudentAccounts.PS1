@@ -228,7 +228,7 @@ function Get-StuObject {
     }
     if (!$obj) {
       Write-Host ($_ | Out-String)
-      (return Write-Warning ('{0},{1} Multiple AD Objects' -f $MyInvocation.MyCommand.name, $id))
+      (return Write-Warning ('{0},{1} No AD object' -f $MyInvocation.MyCommand.name, $id))
     }
     # Write-Verbose  ('{0},{1}' -f $MyInvocation.MyCommand.name, $_.employeeId )
     $obj

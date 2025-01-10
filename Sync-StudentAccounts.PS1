@@ -217,10 +217,18 @@ function Get-ActiveAeries {
 function Get-StuObject {
   process {
     $id = $_.employeeId
+    if (!$id) {
+      Write-Host ($_ | Out-String)
+      return (Write-Warning ('{0},{1},ID not found' -f $MyInvocation.MyCommand.Name))
+    }
     $filter = "employeeId -eq '{0}'" -f $id
     $obj = Get-ADUser -Filter $filter -Properties *
     if ($obj.count -gt 1) {
       (return Write-Warning ('{0},{1} Multiple AD Objects' -f $MyInvocation.MyCommand.name, $id))
+    }
+    if (!$obj) {
+      Write-Host ($_ | Out-String)
+      (return Write-Warning ('{0},{1} Multiple AD Objects' -f $MyInvocation.MyCommand.name))
     }
     # Write-Verbose  ('{0},{1}' -f $MyInvocation.MyCommand.name, $_.employeeId )
     $obj
@@ -355,23 +363,27 @@ function Set-ObjAttributes {
     Write-Verbose ('{0},{1}' -f $MyInvocation.MyCommand.name, $_.employeeId)
     if ($_.gsuiteAccount) {
       Write-Debug ( '{0},{1}' -f $MyInvocation.MyCommand.name, $_.employeeId)
+
       $obj = $_ | Get-StuObject
-      if ($obj) {
-        foreach ($name in $attributeNames) {
-          if ( ($obj.$name -ne $_.$name) -and ($null -ne $_.$name) ) {
-            $formatData = $MyInvocation.MyCommand.name, $obj.employeeId , $name , $obj.$name, $_.$name
-            Write-Host ( '{0},id: [{1}],attribute: [{2}],current:[{3}], new: [{4}]' -f $formatData) -F Blue
-            Set-ADUser -identity $obj.ObjectGUID -Replace @{$name = $_.$name } -Confirm:$false -WhatIf:$WhatIf
-          }
+
+      if (!$obj) {
+        Write-Warning ('{0},{1},Object not found' -f $MyInvocation.MyCommand.Name, $_.employeeId)
+        return
+      }
+      foreach ($name in $attributeNames) {
+        if ( ($obj.$name -ne $_.$name) -and ($null -ne $_.$name) ) {
+          $formatData = $MyInvocation.MyCommand.name, $obj.employeeId , $name , $obj.$name, $_.$name
+          Write-Host ( '{0},id: [{1}],attribute: [{2}],current:[{3}], new: [{4}]' -f $formatData) -F Blue
+          Set-ADUser -identity $obj.ObjectGUID -Replace @{$name = $_.$name } -Confirm:$false -WhatIf:$WhatIf
         }
-        if ($obj.enabled -eq $false) {
-          Write-Host ( '{0},{1},Enable User Account' -f $MyInvocation.MyCommand.name, $obj.name) -F Green
-          Set-ADUser -identity $obj.ObjectGUID -Enabled:$True -Confirm:$false -WhatIf:$WhatIf
-        }
-        if ($obj.AccountExpirationDate -is [datetime]) {
-          Write-Host ( '{0},{1},Clear Account Expiration' -f $MyInvocation.MyCommand.name, $obj.name) -F Green
-          Set-ADUser -identity $obj.ObjectGUID -AccountExpirationDate $null -Confirm:$false -WhatIf:$WhatIf
-        }
+      }
+      if ($obj.enabled -eq $false) {
+        Write-Host ( '{0},{1},Enable User Account' -f $MyInvocation.MyCommand.name, $obj.name) -F Green
+        Set-ADUser -identity $obj.ObjectGUID -Enabled:$True -Confirm:$false -WhatIf:$WhatIf
+      }
+      if ($obj.AccountExpirationDate -is [datetime]) {
+        Write-Host ( '{0},{1},Clear Account Expiration' -f $MyInvocation.MyCommand.name, $obj.name) -F Green
+        Set-ADUser -identity $obj.ObjectGUID -AccountExpirationDate $null -Confirm:$false -WhatIf:$WhatIf
       }
     }
     $_

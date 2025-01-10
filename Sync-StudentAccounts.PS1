@@ -224,11 +224,13 @@ function Get-StuObject {
     $filter = "employeeId -eq '{0}'" -f $id
     $obj = Get-ADUser -Filter $filter -Properties *
     if ($obj.count -gt 1) {
-      (return (Write-Warning ('{0},{1} Multiple AD Objects' -f $MyInvocation.MyCommand.name, $id)))
+      Write-Host ('{0},{1} Multiple AD Objects' -f $MyInvocation.MyCommand.name, $id)
+      return
     }
     if (!$obj) {
       Write-Host ($_ | Out-String)
-      (return (Write-Warning ('{0},{1} No AD object' -f $MyInvocation.MyCommand.name, $id)))
+      Write-Host ('{0},{1} No AD object' -f $MyInvocation.MyCommand.name, $id)
+      return
     }
     # Write-Verbose  ('{0},{1}' -f $MyInvocation.MyCommand.name, $_.employeeId )
     $obj

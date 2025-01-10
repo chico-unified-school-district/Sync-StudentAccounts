@@ -1,3 +1,4 @@
+
  SELECT
  s.SC AS departmentNumber,
  s.ID AS employeeid,

@@ -216,23 +216,12 @@ function Get-ActiveAeries {
 
 function Get-StuObject {
   process {
+    if ($_.employeeId -notmatch '\d') { return }
+    Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.Name, $_.employeeId)
     $id = $_.employeeId
-    if (!$id) {
-      Write-Host ($_ | Out-String)
-      return (Write-Warning ('{0},{1},ID not found' -f $MyInvocation.MyCommand.Name))
-    }
     $filter = "employeeId -eq '{0}'" -f $id
     $obj = Get-ADUser -Filter $filter -Properties *
-    if ($obj.count -gt 1) {
-      Write-Host ('{0},{1} Multiple AD Objects' -f $MyInvocation.MyCommand.name, $id)
-      return
-    }
-    if (!$obj) {
-      Write-Host ($_ | Out-String)
-      Write-Host ('{0},{1} No AD object' -f $MyInvocation.MyCommand.name, $id)
-      return
-    }
-    # Write-Verbose  ('{0},{1}' -f $MyInvocation.MyCommand.name, $_.employeeId )
+    if (!$obj) { return }
     $obj
   }
 }

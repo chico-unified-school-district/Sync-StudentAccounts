@@ -456,8 +456,10 @@ do {
 
   Clear-SessionData
   if (!$WhatIf) {
-    Write-Host ('Next run time: {0}' -f (Get-Date).AddHours(1)) -F Green
-    Start-Sleep 3600
+    $waitMinutes = 60 - (Get-Date).Minute
+    $nextRun = (Get-Date).AddMinutes($waitMinutes)
+    Write-Host ('Next run time: {0}' -f $nextRun) -F Green
+    Start-Sleep (60 * $waitMinutes)
   }
 }
 until ( $WhatIf -or ((Get-Date) -gt (Get-Date "5:00PM")))

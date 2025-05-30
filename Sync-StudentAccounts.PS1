@@ -455,8 +455,10 @@ do {
                                     Complete-Processing
 
   Clear-SessionData
-  Write-Host ('Next run time: {0}' -f (Get-Date).AddHours(1)) -F Green
-  if (!$WhatIf) { Start-Sleep 3600 }
+  if (!$WhatIf) {
+    Write-Host ('Next run time: {0}' -f (Get-Date).AddHours(1)) -F Green
+    Start-Sleep 3600
+  }
 }
 until ( $WhatIf -or ((Get-Date) -gt (Get-Date "5:00PM")))
 Show-BlockInfo end

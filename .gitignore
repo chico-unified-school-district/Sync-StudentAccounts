@@ -4,3 +4,6 @@
 /params.ps1
 /json/lookupTable.json
 /json/lookupTable.old
+/bin/oauth2.txt
+/bin/roots.pem
+/.vscode

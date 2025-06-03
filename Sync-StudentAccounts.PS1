@@ -158,7 +158,7 @@ function New-StuADObject ($stuOu) {
       userPrincipalName = $_.upn
       AccountPassword   = $tempPw
       Title             = 'Student'
-      Description       = 'Student'
+      Description       = ($_.site.SiteName + ' Student').Trim()
       department        = $_.site.SiteName
       Path              = $stuOu
     }
@@ -355,9 +355,8 @@ function Update-ADGroupsRemove {
 
 function Update-GSuiteToActive {
   process {
-    if (!$_.gsuiteData) { return $_ }
-    # GSuite Suspended to 'OFF' if needed
-    if ($_.gsuiteData.suspended -eq 'False') { return $_ }
+    if (!$_.gsuiteData -or ($_.gsuiteData.suspended -eq 'False')) { return $_ }
+    # GSuite Suspended to 'OFF' if needed```
     $cmd = "& $gam update user $($_.gmail) suspended off"
     Write-Host ('{0},{1},{2}' -f $MyInvocation.MyCommand.name, $_.gmail, $cmd) -F DarkMagenta
     if (!$WhatIf) { (& $gam update user $_.gmail suspended off) *>$null }
@@ -367,7 +366,7 @@ function Update-GSuiteToActive {
 
 function Update-GsuiteLicense {
   process {
-    if (!$_.gsuiteData) { return $_ }
+    if (!$_.gsuiteData -or ($_.gsuiteData.suspended -eq 'False')) { return $_ }
     #SKU: 1010310003 = Google Workspace for Education Plus - Legacy (Student)
     #SKU: 1010310008 = Google Workspace for Education Plus
     $cmd = "& $gam user $($_.gmail) add license 1010310008"

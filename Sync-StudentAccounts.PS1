@@ -366,7 +366,7 @@ function Update-GSuiteToActive {
 
 function Update-GsuiteLicense {
   process {
-    if (!$_.gsuiteData -or ($_.gsuiteData.suspended -eq 'False')) { return $_ }
+    if (!$_.gsuiteData) { return $_ }
     #SKU: 1010310003 = Google Workspace for Education Plus - Legacy (Student)
     #SKU: 1010310008 = Google Workspace for Education Plus
     $cmd = "& $gam user $($_.gmail) add license 1010310008"

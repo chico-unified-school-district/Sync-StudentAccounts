@@ -353,6 +353,17 @@ function Update-ADGroupsRemove {
   }
 }
 
+function Update-GSuiteArchivedOff {
+  process {
+    if (!$_.gsuiteData -or $_.gsuiteData.archived -eq 'False') { return $_ }
+    # GSuite Archived to 'OFF' if needed```
+    $cmd = "& $gam update user $($_.gmail) archived off"
+    Write-Host ('{0},{1},{2}' -f $MyInvocation.MyCommand.name, $_.gmail, $cmd) -F DarkMagenta
+    if (!$WhatIf) { (& $gam update user $_.gmail archived off) *>$null }
+    $_
+  }
+}
+
 function Update-GSuiteToActive {
   process {
     if (!$_.gsuiteData -or ($_.gsuiteData.suspended -eq 'False')) { return $_ }
@@ -447,11 +458,12 @@ do {
                       Restore-GSuiteDeleted |
                         Set-GsuiteData |
                           Update-GSuiteToActive |
-                            Update-GsuiteLicense |
-                              Update-ADAttributes |
-                                Update-AeriesStuData $sqlParams |
-                                  New-StudentHomeDir $FileServerCredential $HomeDirFullAccess $DistrictDomain |
-                                    Complete-Processing
+                            Update-GSuiteArchivedOff |
+                              Update-GsuiteLicense |
+                                Update-ADAttributes |
+                                  Update-AeriesStuData $sqlParams |
+                                    New-StudentHomeDir $FileServerCredential $HomeDirFullAccess $DistrictDomain |
+                                      Complete-Processing
 
   Clear-SessionData
   if (!$WhatIf) {

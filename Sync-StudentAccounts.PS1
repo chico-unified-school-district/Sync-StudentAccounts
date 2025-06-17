@@ -87,7 +87,7 @@ function Complete-Processing {
     Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.Name, $_.sam) -F DarkGreen
     Write-Verbose ($MyInvocation.MyCommand.Name, $_ | Out-String )
   }
-  end { Write-Host "Total Processed: $i" -F Green }
+  end { Write-Host "Total Processed: $i ==================================================" -F Green }
 }
 
 function Format-UsrObj ($sisData, $dDomain, $gDomain) {
@@ -297,13 +297,13 @@ function Update-ADAttributes {
     foreach ($attrib in $attributeList) {
       if (($attrib.sis -is [string]) -and ($attrib.ad -ne $attrib.sis)) {
         $msg = $MyInvocation.MyCommand.name, $_.sam , $attrib.name , $attrib.ad, $attrib.sis
-        Write-Host ( '{0},{1},attribute:[{2}],current:[{3}],new:[{4}]' -f $msg) -F DarkMagenta
+        Write-Host ( '{0},{1},Attribute:[{2}],Current:[{3}],New:[{4}]' -f $msg) -F DarkMagenta
         Set-ADUser -identity $_.ad.ObjectGUID -Replace @{$attrib.name = $attrib.sis.Trim() } -Confirm:$false -WhatIf:$WhatIf
       }
     }
 
     if (($_.ad.Enabled -eq $true) -and ($_.ad.AccountExpirationDate -isnot [datetime])) { return $_ }
-    Write-Host ('{0},{1},Enabling and clearing Account Expiration' -f $MyInvocation.MyCommand.Name, $_.sam) -F DarkMagenta
+    Write-Host ('{0},{1},Enabling AD account and clearing AD account expiration' -f $MyInvocation.MyCommand.Name, $_.sam) -F DarkMagenta
     Set-ADUser -identity $_.ad.ObjectGUID -Enabled:$True -AccountExpirationDate $null -Confirm:$false -WhatIf:$WhatIf
     $_
   }
@@ -316,17 +316,17 @@ function Update-AeriesStuData ($sqlParams) {
   }
   process {
     # Only set SIS data if gsuite account exists
-    if ($_.gsuiteAccount) {
-      $checkStuData = New-SqlOperation @sqlParams -query 'SELECT * FROM STU WHERE ID = @id' -Parameters "id=$($_.EmployeeId)"
-      if ( ($checkStuData.sem -notlike $_.gmail) -or ($checkStuData.nid -notlike $_.gmail)) {
-        $sqlVarsSem = "sem=$($_.gmail)", "id=$($_.id)"
-        Write-Host ('{0},{1},{2}' -f $MyInvocation.MyCommand.Name, $updateStuSem, ($sqlVarsSem -join ',')) -F DarkMagenta
-        if (!$WhatIf) { New-SqlOperation @sqlParams -query $updateStuSem -Parameters $sqlVarsSem }
-        $sqlVarsNid = "nid=$($_.gmail)", "id=$($_.id)"
-        Write-Host ('{0},{1},{2}' -f $MyInvocation.MyCommand.Name, $updateStuSem, ($sqlVarsNid -join ',')) -F DarkCyan
-        if (!$WhatIf) { New-SqlOperation @sqlParams -query $updateStuNid -Parameters $sqlVarsNid }
-      }
-    }
+    if (!$_.gsuiteAccount) { return $_ }
+
+    $checkStuData = New-SqlOperation @sqlParams -query 'SELECT * FROM STU WHERE ID = @id' -Parameters "id=$($_.EmployeeId)"
+    if ( ($checkStuData.sem -eq $_.gmail) -and ($checkStuData.nid -eq $_.gmail)) { return $_ }
+
+    $sqlVarsSem = "sem=$($_.gmail)", "id=$($_.id)"
+    Write-Host ('{0},{1},{2}' -f $MyInvocation.MyCommand.Name, $updateStuSem, ($sqlVarsSem -join ',')) -F DarkMagenta
+    if (!$WhatIf) { New-SqlOperation @sqlParams -query $updateStuSem -Parameters $sqlVarsSem }
+    $sqlVarsNid = "nid=$($_.gmail)", "id=$($_.id)"
+    Write-Host ('{0},{1},{2}' -f $MyInvocation.MyCommand.Name, $updateStuSem, ($sqlVarsNid -join ',')) -F DarkCyan
+    if (!$WhatIf) { New-SqlOperation @sqlParams -query $updateStuNid -Parameters $sqlVarsNid }
     $_
   }
 }
@@ -390,7 +390,7 @@ function Update-GsuiteLicense {
 function Update-MissingGrade {
   process {
     if ($_.ad.gecos -match '\d') { return $_ } # If grade (gecos) an integer then move on
-    Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.Name, $obj.samAccountName)
+    Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.Name, $_.sam)
     # set grade (gecos) to 0 for elementary and set it to 100 for non-elementary
     $tempGrade = if ($_.site.SiteName -match 'Elementary') { 0 } else { 100 }
     Set-ADUser -Identity $_.ad.ObjectGUID -replace @{gecos = $tempGrade } -WhatIf:$WhatIf

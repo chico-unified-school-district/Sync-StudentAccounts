@@ -237,7 +237,7 @@ function Set-GroupData ($protectedGroups, $pwGroupSecondary) {
 function Set-GsuiteData {
   process {
     if ($_.ad.created -gt (Get-Date).AddMinutes(-60)) { return $_ } # If AD account too new then skip
-    ($_.GsuiteData = & $gam print users query "email:$($_.gmail)" fields suspended | ConvertFrom-Csv)*>$null
+    ($_.GsuiteData = & $gam print users query "email:$($_.gmail)" fields suspended, archived | ConvertFrom-Csv)*>$null
     $_
   }
 }

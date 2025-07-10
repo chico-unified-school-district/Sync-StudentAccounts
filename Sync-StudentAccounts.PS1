@@ -88,7 +88,7 @@ function Complete-Processing {
     # TODO
     if (!$_.sam) {
       Write-Host ($_ | Out-String)
-      Read-Host 'SAM MISSING'
+      # Read-Host 'SAM MISSING'
     }
     Write-Verbose ($MyInvocation.MyCommand.Name, $_ | Out-String )
   }

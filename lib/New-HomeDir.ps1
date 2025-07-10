@@ -63,13 +63,13 @@ function New-HomeDir {
   }
   function Set-Permissions {
     process {
-      $acl = Get-Acl $_.somePath
       Write-Verbose ( '{0},Folder: {1},User: {2}, Access: {3}' -f $MyInvocation.MyCommand.name, $_.somePath, $_.user , $_.type)
       Write-Verbose ($_ | Out-String)
+      if ($WhatIf) { return }
+      $acl = Get-Acl $_.somePath
       $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule($_.user, $_.type, 'ContainerInherit,ObjectInherit', 'None', 'Allow')
       $acl.SetAccessRule($accessRule)
       # Write-Verbose ( $accessRule | Out-String )
-      if ($WhatIf) { return }
       if ($IsCoreCLR) {
         Write-Verbose ($MyInvocation.MyCommand.name, 'Powershell core detected' | Out-String )
         $fileInfo = Get-Item $_.somePath

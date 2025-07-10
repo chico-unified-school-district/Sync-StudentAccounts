@@ -85,6 +85,11 @@ function Complete-Processing {
   process {
     $i++
     Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.Name, $_.sam) -F DarkGreen
+    # TODO
+    if (!$_.sam) {
+      Write-Host ($_ | Out-String)
+      Read-Host 'SAM MISSING'
+    }
     Write-Verbose ($MyInvocation.MyCommand.Name, $_ | Out-String )
   }
   end { Write-Host "Total Processed: $i ==================================================" -F Green }
@@ -316,16 +321,16 @@ function Update-AeriesStuData ($sqlParams) {
   }
   process {
     # Only set SIS data if gsuite account exists
-    if (!$_.gsuiteAccount) { return $_ }
+    if (!$_.gsuiteData) { return $_ }
 
     $checkStuData = New-SqlOperation @sqlParams -query 'SELECT * FROM STU WHERE ID = @id' -Parameters "id=$($_.EmployeeId)"
     if ( ($checkStuData.sem -eq $_.gmail) -and ($checkStuData.nid -eq $_.gmail)) { return $_ }
 
     $sqlVarsSem = "sem=$($_.gmail)", "id=$($_.id)"
-    Write-Host ('{0},{1},{2}' -f $MyInvocation.MyCommand.Name, $updateStuSem, ($sqlVarsSem -join ',')) -F DarkMagenta
+    Write-Host ('{0},{1},{2}' -f $MyInvocation.MyCommand.Name, $updateStuSem, ($sqlVarsSem -join ',')) -F DarkBlue
     if (!$WhatIf) { New-SqlOperation @sqlParams -query $updateStuSem -Parameters $sqlVarsSem }
     $sqlVarsNid = "nid=$($_.gmail)", "id=$($_.id)"
-    Write-Host ('{0},{1},{2}' -f $MyInvocation.MyCommand.Name, $updateStuSem, ($sqlVarsNid -join ',')) -F DarkCyan
+    Write-Host ('{0},{1},{2}' -f $MyInvocation.MyCommand.Name, $updateStuSem, ($sqlVarsNid -join ',')) -F DarkBlue
     if (!$WhatIf) { New-SqlOperation @sqlParams -query $updateStuNid -Parameters $sqlVarsNid }
     $_
   }

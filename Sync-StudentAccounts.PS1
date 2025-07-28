@@ -330,7 +330,7 @@ function Update-AeriesStuData ($sqlParams) {
     Write-Host ('{0},{1},{2}' -f $MyInvocation.MyCommand.Name, $updateStuSem, ($sqlVarsSem -join ',')) -F DarkBlue
     if (!$WhatIf) { New-SqlOperation @sqlParams -query $updateStuSem -Parameters $sqlVarsSem }
     $sqlVarsNid = "nid=$($_.gmail)", "id=$($_.id)"
-    Write-Host ('{0},{1},{2}' -f $MyInvocation.MyCommand.Name, $updateStuSem, ($sqlVarsNid -join ',')) -F DarkBlue
+    Write-Host ('{0},{1},{2}' -f $MyInvocation.MyCommand.Name, $updateStuNid, ($sqlVarsNid -join ',')) -F DarkBlue
     if (!$WhatIf) { New-SqlOperation @sqlParams -query $updateStuNid -Parameters $sqlVarsNid }
     $_
   }

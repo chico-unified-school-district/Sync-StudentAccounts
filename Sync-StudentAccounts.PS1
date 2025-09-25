@@ -279,20 +279,21 @@ function Update-ADAttributes {
   $adDeptNum = try { $_.ad.departmentNumber[0] } catch { $null }
   $description = ($_.site.SiteName + ' Student').Trim()
   $attributeList = @(
-   'name,ad,sis'
+   'name,ad,new'
    "sn, $($_.ad.sn),$($_.sis.LN)"
    "GivenName, $($_.ad.GivenName),$($_.sis.FN)"
    "departmentNumber,$adDeptNum,$($_.sis.SC)"
    "department,$($_.ad.department), $($_.site.SiteName)"
    "Description,$($_.ad.Description), $description"
    "gecos,$($_.ad.gecos),$($_.sis.GR)"
+   "employeeType,$($_.ad.employeeType),student"
   ) | ConvertFrom-Csv
 
   foreach ($attrib in $attributeList) {
-   if (($attrib.sis -is [string]) -and ($attrib.ad -ne $attrib.sis)) {
-    $msg = $MyInvocation.MyCommand.name, $_.sam , $attrib.name , $attrib.ad, $attrib.sis
+   if (($attrib.new -is [string]) -and ($attrib.ad -ne $attrib.new)) {
+    $msg = $MyInvocation.MyCommand.name, $_.sam , $attrib.name , $attrib.ad, $attrib.new
     Write-Host ( '{0},{1},Attribute:[{2}],Current:[{3}],New:[{4}]' -f $msg) -F DarkMagenta
-    Set-ADUser -Identity $_.ad.ObjectGUID -Replace @{$attrib.name = $attrib.sis.Trim() } -Confirm:$false -WhatIf:$WhatIf
+    Set-ADUser -Identity $_.ad.ObjectGUID -Replace @{$attrib.name = $attrib.new.Trim() } -Confirm:$false -WhatIf:$WhatIf
    }
   }
 

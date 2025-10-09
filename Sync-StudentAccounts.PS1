@@ -419,25 +419,26 @@ function Restore-GSuiteDeleted {
 
 # ============================================================================================
 
-Import-Module -Name CommonScriptFunctions, dbatools
+Import-Module -Name dbatools -Cmdlet Invoke-DbaQuery, Connect-DbaInstance, Set-DBAToolConfig
+Import-Module -Name CommonScriptFunctions
 
 if ($WhatIf) { Show-TestRun }
 Show-BlockInfo main
+Show-BlockInfo $SISDatabase
+
 $gam = '.\bin\gam.exe'
 $adCmdLets = 'Get-ADDomain', 'Get-ADUser', 'Set-ADUser', 'New-ADUser', 'Move-ADObject',
 'Rename-ADObject', 'Remove-ADGroupMember', 'Add-ADGroupMember'
-$sqlParams = @{
- Server     = $SISServer
- Database   = $SISDatabase
- Credential = $SISCredential
-}
+
+$sqlInstance = @{ Server = Connect-DbaInstance -SqlInstance $SISServer -SqlCredential $SISCredential -Database $SISDatabase }
+
 $siteCodes = $ValidSiteCodes -join ','
 $studentQuery = (Get-Content -Path '.\sql\active-students3.sql' -Raw) -replace 'VALID_SITE_CODES', $siteCodes
 Write-Verbose ($studentQuery | Out-String)
 
 do {
  Connect-ADSession $DomainControllers $ADCredential $adCmdLets
- $activeSIS = Get-ActiveSiS $sqlParams $studentQuery
+ $activeSIS = Get-ActiveSiS $sqlInstance $studentQuery
  $activeAD = Get-ActiveAD $StudentOrgUnit
  $results = if ($TestData) { $TestData } else { Compare-Data -AeriesData $activeSIS -ADData $activeAD }
  if ($OutputResults) { $results | Out-Results; exit }
@@ -458,7 +459,7 @@ do {
               Update-GSuiteArchivedOff |
                Update-GsuiteLicense |
                 Update-ADAttributes |
-                 Update-AeriesStuData $sqlParams |
+                 Update-AeriesStuData $sqlInstance |
                   New-StudentHomeDir $FileServerCredential $HomeDirFullAccess $DistrictDomain |
                    Complete-Processing
 

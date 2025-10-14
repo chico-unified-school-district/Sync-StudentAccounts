@@ -228,7 +228,7 @@ function Set-GroupData ($protectedGroups, $pwGroupSecondary) {
  }
 }
 
-function Set-GsuiteData {
+function Set-GSuiteData {
  process {
   if ($_.ad.created -gt (Get-Date).AddMinutes(-60)) { return $_ } # If AD account too new then skip
   ($_.GsuiteData = & $gam print users query "email:$($_.gmail)" fields suspended, archived | ConvertFrom-Csv)*>$null
@@ -330,7 +330,7 @@ function Update-ADGroupsAdd {
  process {
   if (!$_.ad -and !$_.groupData.add) { return $_ }
   foreach ($group in $_.groupData.add) {
-   Write-Host ('{0},{1},{2}' -f $MyInvocation.MyCommand.Name, $_.sam, $group) -F DarkYellow
+   Write-Host ('{0},{1},{2}' -f $MyInvocation.MyCommand.Name, $_.sam, $group) -F DarkGreen
    Add-ADGroupMember -Identity $group -Members $_.sam -Confirm:$false -WhatIf:$WhatIf
   }
   $_
@@ -342,7 +342,7 @@ function Update-ADGroupsRemove {
   if (!$_.ad -and !$_.groupData.remove) { return $_ }
   foreach ($group in $_.groupData.remove) {
    Write-Host ('{0},{1},{2}' -f $MyInvocation.MyCommand.Name, $_.sam, $group) -F DarkYellow
-   Add-ADGroupMember -Identity $group -Members $_.sam -Confirm:$false -WhatIf:$WhatIf
+   Remove-ADGroupMember -Identity $group -Members $_.sam -Confirm:$false -WhatIf:$WhatIf
   }
   $_
  }
@@ -370,7 +370,7 @@ function Update-GSuiteToActive {
  }
 }
 
-function Update-GsuiteLicense {
+function Update-GSuiteLicense {
  process {
   if (!$_.gsuiteData) { return $_ }
   #SKU: 1010310003 = Google Workspace for Education Plus - Legacy (Student)
@@ -454,10 +454,10 @@ do {
          Update-ADGroupsRemove |
           Update-ADGroupsAdd |
            Restore-GSuiteDeleted |
-            Set-GsuiteData |
+            Set-GSuiteData |
              Update-GSuiteToActive |
               Update-GSuiteArchivedOff |
-               Update-GsuiteLicense |
+               Update-GSuiteLicense |
                 Update-ADAttributes |
                  Update-AeriesStuData $sqlInstance |
                   New-StudentHomeDir $FileServerCredential $HomeDirFullAccess $DistrictDomain |

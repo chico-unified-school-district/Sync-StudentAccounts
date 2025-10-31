@@ -44,6 +44,7 @@ param(
  [Parameter(Mandatory = $True)][string]$StudentOrgUnit,
  [string[]]$ProtectedADGroups,
  [string]$SecondaryGroup,
+ [string]$StudentHomeDirGroup,
  [Parameter(Mandatory = $True)][Alias('FSCred')][System.Management.Automation.PSCredential]$FileServerCredential,
  [string[]]$HomeDirFullAccess,
  [Parameter(Mandatory = $true)][string]$SISServer,
@@ -208,7 +209,7 @@ function Set-ADData {
  }
 }
 
-function Set-GroupData ($protectedGroups, $pwGroupSecondary) {
+function Set-GroupData ($protectedGroups, $pwGroupSecondary, $homeDirGroup) {
  process {
   if (!$_.ad -or !$_.site) { return $_ }
 
@@ -216,7 +217,7 @@ function Set-GroupData ($protectedGroups, $pwGroupSecondary) {
   $current = $_.ad.memberof | ForEach-Object { $_.split(',')[0].TrimStart('CN').TrimStart('=') }
   $_.groupData.current = $current
 
-  $addGroups = $_.site.StudentGroup, $_.site.FilterGroup
+  $addGroups = $_.site.StudentGroup, $_.site.FilterGroup, $homeDirGroup
   if ([int]$_.sis.GR -ge 6) { $addGroups += $pwGroupSecondary }
 
   # Remove - If the group is not in protected and not in the add list then include in the remove group
@@ -230,8 +231,10 @@ function Set-GroupData ($protectedGroups, $pwGroupSecondary) {
 
 function Set-GSuiteData {
  process {
-  if ($_.ad.created -gt (Get-Date).AddMinutes(-60)) { return $_ } # If AD account too new then skip
+  if ($_.ad.created -gt (Get-Date).AddMinutes(-60)) { return $_ }
+  $ErrorActionPreference = 'Continue'# If AD account too new then skip
   ($_.GsuiteData = & $gam print users query "email:$($_.gmail)" fields suspended, archived | ConvertFrom-Csv)*>$null
+  $ErrorActionPreference = 'Stop'
   $_
  }
 }
@@ -354,7 +357,11 @@ function Update-GSuiteArchivedOff {
   # GSuite Archived to 'OFF' if needed```
   $cmd = "& $gam update user $($_.gmail) archived off"
   Write-Host ('{0},{1},{2}' -f $MyInvocation.MyCommand.name, $_.gmail, $cmd) -F DarkMagenta
-  if (!$WhatIf) { (& $gam update user $_.gmail archived off) *>$null }
+  if (!$WhatIf) {
+   $ErrorActionPreference = 'Continue'
+   (& $gam update user $_.gmail archived off) *>$null
+   $ErrorActionPreference = 'Stop'
+  }
   $_
  }
 }
@@ -365,7 +372,11 @@ function Update-GSuiteToActive {
   # GSuite Suspended to 'OFF' if needed```
   $cmd = "& $gam update user $($_.gmail) suspended off"
   Write-Host ('{0},{1},{2}' -f $MyInvocation.MyCommand.name, $_.gmail, $cmd) -F DarkMagenta
-  if (!$WhatIf) { (& $gam update user $_.gmail suspended off) *>$null }
+  if (!$WhatIf) {
+   $ErrorActionPreference = 'Continue'
+   (& $gam update user $_.gmail suspended off) *>$null
+   $ErrorActionPreference = 'Stop'
+  }
   $_
  }
 }
@@ -377,7 +388,11 @@ function Update-GSuiteLicense {
   #SKU: 1010310008 = Google Workspace for Education Plus
   $cmd = "& $gam user $($_.gmail) add license 1010310008"
   Write-Host ('{0},{1},[{2}]' -f $MyInvocation.MyCommand.Name, $_.gmail, $cmd) -F DarkCyan
-  if (!$WhatIf) { (& $gam user $_.gmail add license 1010310008) *>$null }
+  if (!$WhatIf) {
+   $ErrorActionPreference = 'Continue'
+   (& $gam user $_.gmail add license 1010310008) *>$null
+   $ErrorActionPreference = 'Stop'
+  }
   $_
  }
 }
@@ -407,26 +422,33 @@ function Update-OrgUnit {
 function Restore-GSuiteDeleted {
  begin {
   Write-Verbose ('{0},Getting deleted gSuite accounts' -f $MyInvocation.MyCommand.Name)
+  $ErrorActionPreference = 'Continue'
   ($deletedGSuite = & $gam print users deleted_only | ConvertFrom-Csv) *>$null
+  $ErrorActionPreference = 'Stop'
  }
  process {
   if ($deletedGSuite.primaryEmail -notmatch $_.gmail) { return $_ }
   Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.Name, $_.gmail)
-  if (!$WhatIf) { (& $gam undelete user $_.gmail) *>$null }
+  if (!$WhatIf) {
+   $ErrorActionPreference = 'Continue'
+   (& $gam undelete user $_.gmail) *>$null
+   $ErrorActionPreference = 'Stop'
+  }
   $_
  }
 }
 
 # ============================================================================================
 
-Import-Module -Name dbatools -Cmdlet Invoke-DbaQuery, Connect-DbaInstance, Set-DBAToolConfig
+Import-Module -Name dbatools -Cmdlet Invoke-DbaQuery, Connect-DbaInstance, Disconnect-DbaInstance, Set-DBAToolConfig
 Import-Module -Name CommonScriptFunctions
 
 if ($WhatIf) { Show-TestRun }
 Show-BlockInfo main
 Show-BlockInfo $SISDatabase
 
-$gam = '.\bin\gam.exe'
+$gam = 'C:\GAM7\gam.exe'
+
 $adCmdLets = 'Get-ADDomain', 'Get-ADUser', 'Set-ADUser', 'New-ADUser', 'Move-ADObject',
 'Rename-ADObject', 'Remove-ADGroupMember', 'Add-ADGroupMember'
 
@@ -450,7 +472,7 @@ do {
      New-StuADObject $StudentOrgUnit |
       Update-OrgUnit |
        Update-MissingGrade |
-        Set-GroupData $ProtectedADGroups $SecondaryGroup |
+        Set-GroupData $ProtectedADGroups $SecondaryGroup $StudentHomeDirGroup |
          Update-ADGroupsRemove |
           Update-ADGroupsAdd |
            Restore-GSuiteDeleted |
@@ -460,8 +482,8 @@ do {
                Update-GSuiteLicense |
                 Update-ADAttributes |
                  Update-AeriesStuData $sqlInstance |
-                  New-StudentHomeDir $FileServerCredential $HomeDirFullAccess $DistrictDomain |
-                   Complete-Processing
+                  # New-StudentHomeDir $FileServerCredential $HomeDirFullAccess $DistrictDomain |
+                  Complete-Processing
 
  Clear-SessionData
  if (!$WhatIf) {

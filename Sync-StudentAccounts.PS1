@@ -231,8 +231,9 @@ function Set-GroupData ($protectedGroups, $pwGroupSecondary, $homeDirGroup) {
 
 function Set-GSuiteData {
  process {
-  if ($_.ad.created -gt (Get-Date).AddMinutes(-60)) { return $_ }
-  $ErrorActionPreference = 'Continue'# If AD account too new then skip
+  # If AD account too new then skip
+  if ($_.ad.created -gt (Get-Date).AddMinutes(-45)) { return $_ }
+  $ErrorActionPreference = 'Continue'
   ($_.GsuiteData = & $gam print users query "email:$($_.gmail)" fields suspended, archived | ConvertFrom-Csv)*>$null
   $ErrorActionPreference = 'Stop'
   $_

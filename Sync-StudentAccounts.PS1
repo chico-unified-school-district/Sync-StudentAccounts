@@ -101,7 +101,7 @@ function Format-UsrObj ($sisData, $dDomain, $gDomain) {
    targetOU   = $null
    groupData  = $null
    site       = $null
-   gsuiteData = $null
+   gSuiteData = $null
   }
  }
 }
@@ -233,9 +233,7 @@ function Set-GSuiteData {
  process {
   # If AD account too new then skip
   if ($_.ad.created -gt (Get-Date).AddMinutes(-45)) { return $_ }
-  $ErrorActionPreference = 'Continue'
-  ($_.GsuiteData = & $gam print users query "email:$($_.gmail)" fields suspended, archived | ConvertFrom-Csv)*>$null
-  $ErrorActionPreference = 'Stop'
+  ($_.gSuiteData = & $gam print users query "email:$($_.gmail)" fields suspended, archived | ConvertFrom-Csv)*>$null
   $_
  }
 }
@@ -279,7 +277,7 @@ function Skip-BadName {
 function Update-ADAttributes {
  process {
   # Only set attributes if gsuite and ad accounts exist
-  if (!$_.ad -or !$_.gsuiteData) { return $_ }
+  if (!$_.ad -or !$_.gSuiteData) { return $_ }
   $adDeptNum = try { $_.ad.departmentNumber[0] } catch { $null }
   $description = ($_.site.SiteName + ' Student').Trim()
   $attributeList = @(
@@ -315,7 +313,7 @@ function Update-AeriesStuData ($sqlParams) {
  }
  process {
   # Only set SIS data if gsuite account exists
-  if (!$_.gsuiteData) { return $_ }
+  if (!$_.gSuiteData) { return $_ }
 
   $checkStuData = New-SqlOperation @sqlParams -Query 'SELECT * FROM STU WHERE ID = @id' -Parameters "id=$($_.EmployeeId)"
   if ( ($checkStuData.sem -eq $_.gmail) -and ($checkStuData.nid -eq $_.gmail)) { return $_ }
@@ -354,46 +352,34 @@ function Update-ADGroupsRemove {
 
 function Update-GSuiteArchivedOff {
  process {
-  if (!$_.gsuiteData -or $_.gsuiteData.archived -eq 'False') { return $_ }
+  if (!$_.gSuiteData -or $_.gSuiteData.archived -eq 'False') { return $_ }
   # GSuite Archived to 'OFF' if needed```
   $cmd = "& $gam update user $($_.gmail) archived off"
   Write-Host ('{0},{1},{2}' -f $MyInvocation.MyCommand.name, $_.gmail, $cmd) -F DarkMagenta
-  if (!$WhatIf) {
-   $ErrorActionPreference = 'Continue'
-   (& $gam update user $_.gmail archived off) *>$null
-   $ErrorActionPreference = 'Stop'
-  }
+  if (!$WhatIf) { (& $gam update user $_.gmail archived off) *>$null }
   $_
  }
 }
 
 function Update-GSuiteToActive {
  process {
-  if (!$_.gsuiteData -or ($_.gsuiteData.suspended -eq 'False')) { return $_ }
+  if (!$_.gSuiteData -or ($_.gSuiteData.suspended -eq 'False')) { return $_ }
   # GSuite Suspended to 'OFF' if needed```
   $cmd = "& $gam update user $($_.gmail) suspended off"
   Write-Host ('{0},{1},{2}' -f $MyInvocation.MyCommand.name, $_.gmail, $cmd) -F DarkMagenta
-  if (!$WhatIf) {
-   $ErrorActionPreference = 'Continue'
-   (& $gam update user $_.gmail suspended off) *>$null
-   $ErrorActionPreference = 'Stop'
-  }
+  if (!$WhatIf) { (& $gam update user $_.gmail suspended off) *>$null }
   $_
  }
 }
 
 function Update-GSuiteLicense {
  process {
-  if (!$_.gsuiteData) { return $_ }
+  if (!$_.gSuiteData) { return $_ }
   #SKU: 1010310003 = Google Workspace for Education Plus - Legacy (Student)
   #SKU: 1010310008 = Google Workspace for Education Plus
   $cmd = "& $gam user $($_.gmail) add license 1010310008"
   Write-Host ('{0},{1},[{2}]' -f $MyInvocation.MyCommand.Name, $_.gmail, $cmd) -F DarkCyan
-  if (!$WhatIf) {
-   $ErrorActionPreference = 'Continue'
-   (& $gam user $_.gmail add license 1010310008) *>$null
-   $ErrorActionPreference = 'Stop'
-  }
+  if (!$WhatIf) { (& $gam user $_.gmail add license 1010310008) *>$null }
   $_
  }
 }
@@ -423,18 +409,12 @@ function Update-OrgUnit {
 function Restore-GSuiteDeleted {
  begin {
   Write-Verbose ('{0},Getting deleted gSuite accounts' -f $MyInvocation.MyCommand.Name)
-  $ErrorActionPreference = 'Continue'
   ($deletedGSuite = & $gam print users deleted_only | ConvertFrom-Csv) *>$null
-  $ErrorActionPreference = 'Stop'
  }
  process {
   if ($deletedGSuite.primaryEmail -notmatch $_.gmail) { return $_ }
   Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.Name, $_.gmail)
-  if (!$WhatIf) {
-   $ErrorActionPreference = 'Continue'
-   (& $gam undelete user $_.gmail) *>$null
-   $ErrorActionPreference = 'Stop'
-  }
+  if (!$WhatIf) { (& $gam undelete user $_.gmail) *>$null }
   $_
  }
 }
@@ -497,3 +477,4 @@ do {
 until ( $WhatIf -or ((Get-Date) -gt (Get-Date '5:00PM')))
 Show-BlockInfo end
 if ($WhatIf) { Show-TestRun }
+if ($LASTEXITCODE = 56) { $LASTEXITCODE = 0 } # Gam.exe ENTITY_DOES_NOT_EXIST_RC = 56

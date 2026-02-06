@@ -261,7 +261,10 @@ function Set-SiteData {
   $siteCode = $_.sis.SC
   $site = $lookUpTable.Where({ [int]$_.SiteCode -eq [int]$siteCode })
   $_.site = if ($site.SiteCode -match '\d') { $site }
-  if (!$_.site) { Write-Verbose ('{0},{1},[{2}],No site data' -f $MyInvocation.MyCommand.Name, $_.sam, $siteCode) }
+  if (!$_.site) {
+   Write-Verbose ('{0},{1},[{2}],No site data' -f $MyInvocation.MyCommand.Name, $_.sam, $siteCode)
+   return # Skip if no matching site data found for the student
+  }
   $_
  }
 }
@@ -294,7 +297,7 @@ function Update-ADAttributes {
   foreach ($attrib in $attributeList) {
    if (($attrib.new -is [string]) -and ($attrib.ad -ne $attrib.new)) {
     $msg = $MyInvocation.MyCommand.name, $_.sam , $attrib.name , $attrib.ad, $attrib.new
-    Write-Host ( '{0},{1},Attribute:[{2}],Current:[{3}],New:[{4}]' -f $msg) -F DarkMagenta
+    Write-Host ( '{0},{1},Prop:[{2}],Old:[{3}],New:[{4}]' -f $msg) -F DarkMagenta
     Set-ADUser -Identity $_.ad.ObjectGUID -Replace @{$attrib.name = $attrib.new.Trim() } -Confirm:$false -WhatIf:$WhatIf
    }
   }
@@ -312,18 +315,19 @@ function Update-AeriesStuData ($sqlParams) {
   $updateStuNid = 'UPDATE STU SET STU.NID = @nid Where STU.ID = @id'
  }
  process {
-  # Only set SIS data if gsuite account exists
+  # Only set SIS data if gSuite account exists
   if (!$_.gSuiteData) { return $_ }
 
   $checkStuData = New-SqlOperation @sqlParams -Query 'SELECT * FROM STU WHERE ID = @id' -Parameters "id=$($_.EmployeeId)"
   if ( ($checkStuData.sem -eq $_.gmail) -and ($checkStuData.nid -eq $_.gmail)) { return $_ }
-
+  Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.Name, $_.gmail) -F DarkBlue
   $sqlVarsSem = "sem=$($_.gmail)", "id=$($_.id)"
-  Write-Host ('{0},{1},{2}' -f $MyInvocation.MyCommand.Name, $updateStuSem, ($sqlVarsSem -join ',')) -F DarkBlue
-  if (!$WhatIf) { New-SqlOperation @sqlParams -Query $updateStuSem -Parameters $sqlVarsSem }
+  Write-Verbose ('{0},{1},{2}' -f $MyInvocation.MyCommand.Name, $updateStuSem, ($sqlVarsSem -join ','))
   $sqlVarsNid = "nid=$($_.gmail)", "id=$($_.id)"
-  Write-Host ('{0},{1},{2}' -f $MyInvocation.MyCommand.Name, $updateStuNid, ($sqlVarsNid -join ',')) -F DarkBlue
-  if (!$WhatIf) { New-SqlOperation @sqlParams -Query $updateStuNid -Parameters $sqlVarsNid }
+  Write-Verbose ('{0},{1},{2}' -f $MyInvocation.MyCommand.Name, $updateStuNid, ($sqlVarsNid -join ','))
+  if ($WhatIf) { return $_ }
+  New-SqlOperation @sqlParams -Query $updateStuSem -Parameters $sqlVarsSem
+  New-SqlOperation @sqlParams -Query $updateStuNid -Parameters $sqlVarsNid
   $_
  }
 }
@@ -377,9 +381,9 @@ function Update-GSuiteLicense {
   if (!$_.gSuiteData) { return $_ }
   #SKU: 1010310003 = Google Workspace for Education Plus - Legacy (Student)
   #SKU: 1010310008 = Google Workspace for Education Plus
-  $cmd = "& $gam user $($_.gmail) add license 1010310008"
-  Write-Host ('{0},{1},[{2}]' -f $MyInvocation.MyCommand.Name, $_.gmail, $cmd) -F DarkCyan
-  if (!$WhatIf) { (& $gam user $_.gmail add license 1010310008) *>$null }
+  Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.Name, $_.gmail) -F DarkCyan
+  if ($WhatIf) { return $_ }
+  (& $gam user $_.gmail add license 1010310008) *>$null
   $_
  }
 }
@@ -399,7 +403,7 @@ function Update-OrgUnit {
  process {
   if (!$_.targetOU) { return $_ }
   if ($_.ad.DistinguishedName -notmatch $_.targetOU) {
-   Write-Host ( '{0},{1},{2}' -f $MyInvocation.MyCommand.name, $_.sam, $_.targetOU ) -F Magenta
+   Write-Host ( '{0},{1},{2}' -f $MyInvocation.MyCommand.name, $_.sam, ($_.targetOU.Split(',')[0..2] -join ',') ) -F Magenta
    Move-ADObject -Identity $_.ad.ObjectGUID -TargetPath $_.targetOU -Confirm:$False -WhatIf:$WhatIf
   }
   $_

@@ -403,7 +403,7 @@ function Update-OrgUnit {
  process {
   if (!$_.targetOU) { return $_ }
   if ($_.ad.DistinguishedName -notmatch $_.targetOU) {
-   Write-Host ( '{0},{1},{2}' -f $MyInvocation.MyCommand.name, $_.sam, ($_.targetOU.Split(',')[0..2] -join ',') ) -F Magenta
+   Write-Host ( '{0},{1},{2}' -f $MyInvocation.MyCommand.name, $_.sam, ($_.targetOU.Split(',')[0..2] -join ' ') ) -F Magenta
    Move-ADObject -Identity $_.ad.ObjectGUID -TargetPath $_.targetOU -Confirm:$False -WhatIf:$WhatIf
   }
   $_
@@ -413,7 +413,11 @@ function Update-OrgUnit {
 function Restore-GSuiteDeleted {
  begin {
   Write-Verbose ('{0},Getting deleted gSuite accounts' -f $MyInvocation.MyCommand.Name)
-  ($deletedGSuite = & $gam print users deleted_only | ConvertFrom-Csv) *>$null
+  try { ($deletedGSuite = & $gam print users deleted_only | ConvertFrom-Csv) *>$null }
+  catch {
+   Write-Warning ('{0},Failed to get deleted gSuite accounts, check GAM connectivity' -f $MyInvocation.MyCommand.Name)
+   $deletedGSuite = @()
+  }
  }
  process {
   if ($deletedGSuite.primaryEmail -notmatch $_.gmail) { return $_ }

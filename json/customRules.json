@@ -16,8 +16,8 @@
         "middleName",
         "initials"
       ],
-      "conditions": ["info -like '*custom*Name*'"],
-      "actions": ["Skip"]
+      "keyPhrase": "*custom*Name*",
+      "actions": "Skip"
     },
     {
       "id": "rule-2",
@@ -25,7 +25,7 @@
       "description": "If customDepartment appears in the 'info' attribute in the ad user object",
       "enabled": false,
       "attributes": ["department"],
-      "conditions": ["info -like '*custom*Department*'"],
+      "keyPhrase": ["info -like '*custom*Department*'"],
       "actions": []
     }
   ],

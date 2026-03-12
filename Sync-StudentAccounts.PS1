@@ -283,7 +283,7 @@ function Update-ADAttributes {
    $rules = Get-Content .\json\customRules.json -Raw | ConvertFrom-Json | Where-Object { $_.customRules.Enabled }
    foreach ($rule in $rules.customRules) {
     if (!$rule.enabled -or $rule.type -ne 'AD Attribute') { continue } # Skip disabled rules
-    if (!$rule.conditions) { continue } # Skip if condition not met.
+    if ($adObj.info -notlike $rule.keyPhrase) { continue } # Skip if condition not met.
     if ($rule.attributes -contains $attribName) {
      Write-Host ('{0},{1},[{2}] Skipping attribute update based on custom rule' -f $MyInvocation.MyCommand.Name, $adObj.SamAccountName, $attribName) -F Magenta
      return $true

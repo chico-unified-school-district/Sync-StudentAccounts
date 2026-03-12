@@ -278,6 +278,19 @@ function Skip-BadName {
 }
 
 function Update-ADAttributes {
+ begin {
+  function skipAttribute ($adObj, $attribName) {
+   $rules = Get-Content .\json\customRules.json -Raw | ConvertFrom-Json | Where-Object { $_.customRules.Enabled }
+   foreach ($rule in $rules.customRules) {
+    if (!$rule.enabled -or $rule.type -ne 'AD Attribute') { continue } # Skip disabled rules
+    if (!$rule.conditions) { continue } # Skip if condition not met.
+    if ($rule.attributes -contains $attribName) {
+     Write-Host ('{0},{1},[{2}] Skipping attribute update based on custom rule' -f $MyInvocation.MyCommand.Name, $adObj.SamAccountName, $attribName) -F Magenta
+     return $true
+    }
+   }
+  }
+ }
  process {
   # Only set attributes if gsuite and ad accounts exist
   if (!$_.ad -or !$_.gSuiteData) { return $_ }
@@ -295,6 +308,7 @@ function Update-ADAttributes {
   ) | ConvertFrom-Csv
 
   foreach ($attrib in $attributeList) {
+   if (skipAttribute -adObj $_.ad -attribName $attrib.name) { continue }
    if (($attrib.new -is [string]) -and ($attrib.ad -ne $attrib.new)) {
     $msg = $MyInvocation.MyCommand.name, $_.sam , $attrib.name , $attrib.ad, $attrib.new
     Write-Host ( '{0},{1},Prop:[{2}],Old:[{3}],New:[{4}]' -f $msg) -F DarkMagenta
@@ -412,11 +426,17 @@ function Update-OrgUnit {
 
 function Restore-GSuiteDeleted {
  begin {
-  Write-Verbose ('{0},Getting deleted gSuite accounts' -f $MyInvocation.MyCommand.Name)
-  try { ($deletedGSuite = & $gam print users deleted_only | ConvertFrom-Csv) *>$null }
-  catch {
-   Write-Warning ('{0},Failed to get deleted gSuite accounts, check GAM connectivity' -f $MyInvocation.MyCommand.Name)
-   $deletedGSuite = @()
+  $i = 0
+  function getDeletedGSuiteAccounts {
+   Write-Verbose ('{0},Getting deleted gSuite accounts' -f $MyInvocation.MyCommand.Name)
+   for ($i; $i -le 5; $i++) {
+    try { (& $gam print users deleted_only | ConvertFrom-Csv) *>$null }
+    catch {
+     Write-Warning ('{0},Failed to get deleted gSuite accounts, check GAM connectivity' -f $MyInvocation.MyCommand.Name)
+     Start-Sleep -Seconds 30
+     getDeletedGSuiteAccounts
+    }
+   }
   }
  }
  process {

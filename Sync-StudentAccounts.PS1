@@ -372,9 +372,8 @@ function Update-GSuiteArchivedOff {
  process {
   if (!$_.gSuiteData -or $_.gSuiteData.archived -eq 'False') { return $_ }
   # GSuite Archived to 'OFF' if needed```
-  $cmd = "& $gam update user $($_.gmail) archived off"
-  Write-Host ('{0},{1},{2}' -f $MyInvocation.MyCommand.name, $_.gmail, $cmd) -F DarkMagenta
-  if (!$WhatIf) { (& $gam update user $_.gmail archived off) *>$null }
+  Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.name, $_.gmail) -F DarkMagenta
+  if (!$WhatIf) { (& $gam update user "$($_.gmail)" archived off) *>$null }
   $_
  }
 }
@@ -383,9 +382,8 @@ function Update-GSuiteToActive {
  process {
   if (!$_.gSuiteData -or ($_.gSuiteData.suspended -eq 'False')) { return $_ }
   # GSuite Suspended to 'OFF' if needed```
-  $cmd = "& $gam update user $($_.gmail) suspended off"
-  Write-Host ('{0},{1},{2}' -f $MyInvocation.MyCommand.name, $_.gmail, $cmd) -F DarkMagenta
-  if (!$WhatIf) { (& $gam update user $_.gmail suspended off) *>$null }
+  Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.name, $_.gmail) -F DarkMagenta
+  if (!$WhatIf) { (& $gam update user "$($_.gmail)" suspended off) *>$null }
   $_
  }
 }
@@ -395,9 +393,8 @@ function Update-GSuiteLicense {
   if (!$_.gSuiteData) { return $_ }
   #SKU: 1010310003 = Google Workspace for Education Plus - Legacy (Student)
   #SKU: 1010310008 = Google Workspace for Education Plus
-  Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.Name, $_.gmail) -F DarkCyan
-  if ($WhatIf) { return $_ }
-  (& $gam user $_.gmail add license 1010310008) *>$null
+  Write-Host ('{0},{1},{2}' -f $MyInvocation.MyCommand.Name, $_.gmail, 1010310008) -F DarkCyan
+  if (!$WhatIf) { (& $gam user "$($_.gmail)" add license 1010310008) *>$null }
   $_
  }
 }
@@ -442,7 +439,7 @@ function Restore-GSuiteDeleted {
  process {
   if ($deletedGSuite.primaryEmail -notmatch $_.gmail) { return $_ }
   Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.Name, $_.gmail)
-  if (!$WhatIf) { (& $gam undelete user $_.gmail) *>$null }
+  if (!$WhatIf) { (& $gam undelete user "$($_.gmail)") *>$null }
   $_
  }
 }

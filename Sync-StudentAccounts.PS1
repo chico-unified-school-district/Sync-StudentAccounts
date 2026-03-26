@@ -503,3 +503,6 @@ until ( $WhatIf -or ((Get-Date) -gt (Get-Date '5:00PM')))
 Show-BlockInfo end
 if ($WhatIf) { Show-TestRun }
 if ($LASTEXITCODE = 56) { $LASTEXITCODE = 0 } # Gam.exe ENTITY_DOES_NOT_EXIST_RC = 56
+
+'Script Errors:'
+$error

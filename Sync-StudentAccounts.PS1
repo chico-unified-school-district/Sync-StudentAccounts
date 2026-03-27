@@ -233,7 +233,8 @@ function Set-GSuiteData {
  process {
   # If AD account too new then skip
   if ($_.ad.created -gt (Get-Date).AddMinutes(-45)) { return $_ }
-  ($_.gSuiteData = & $gam print users query "email:$($_.gmail)" fields suspended, archived | ConvertFrom-Csv)*>$null
+  # ($_.gSuiteData = & $gam print users query "email:$($_.gmail)" fields suspended, archived | ConvertFrom-Csv)*>$null
+  $_.gSuiteData = & $gam info user "$($_.gmail)"
   $_
  }
 }
@@ -370,7 +371,15 @@ function Update-ADGroupsRemove {
 
 function Update-GSuiteArchivedOff {
  process {
-  if (!$_.gSuiteData -or $_.gSuiteData.archived -eq 'False') { return $_ }
+  # if (!$_.gSuiteData -or $_.gSuiteData.archived -eq 'False') { return $_ }
+  if (!$_.gSuiteData) {
+   Write-Host ('{0},{1},No GSuite data detected.' -f $MyInvocation.MyCommand.name, $_.gmail) -F Red
+   return
+  }
+  if ($_.gSuiteData -match 'Is Archived: False') {
+   Write-Host ('{0},{1},Account is not archived.' -f $MyInvocation.MyCommand.name, $_.gmail) -F Green
+   return $_
+  }
   # GSuite Archived to 'OFF' if needed```
   Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.name, $_.gmail) -F DarkMagenta
   if (!$WhatIf) { (& $gam update user "$($_.gmail)" archived off) *>$null }
@@ -380,7 +389,14 @@ function Update-GSuiteArchivedOff {
 
 function Update-GSuiteToActive {
  process {
-  if (!$_.gSuiteData -or ($_.gSuiteData.suspended -eq 'False')) { return $_ }
+  if (!$_.gSuiteData) {
+   Write-Host ('{0},{1},No GSuite data detected.' -f $MyInvocation.MyCommand.name, $_.gmail) -F Red
+   return
+  }
+  if ($_.gSuiteData -match 'Account Suspended: False') {
+   Write-Host ('{0},{1},Account is already active.' -f $MyInvocation.MyCommand.name, $_.gmail) -F Green
+   return $_
+  }
   # GSuite Suspended to 'OFF' if needed```
   Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.name, $_.gmail) -F DarkMagenta
   if (!$WhatIf) { (& $gam update user "$($_.gmail)" suspended off) *>$null }
@@ -390,12 +406,18 @@ function Update-GSuiteToActive {
 
 function Update-GSuiteLicense {
  process {
-  if (!$_.gSuiteData) { return $_ }
+  if (!$_.gSuiteData) {
+   Write-Host ('{0},{1},No GSuite data detected.' -f $MyInvocation.MyCommand.name, $_.gmail) -F Red
+   return
+  }
   #SKU: 1010310003 = Google Workspace for Education Plus - Legacy (Student)
   #SKU: 1010310008 = Google Workspace for Education Plus
-  $license = 1010310008
-  Write-Host ('{0},{1},{2}' -f $MyInvocation.MyCommand.Name, $_.gmail, $license) -F DarkCyan
-  $isLicensed = & gam user info "$($_.gmail)"
+  $license = '1010310008'
+  if ($_.gSuiteData -match $license) {
+   Write-Host ('{0},{1},License is already applied.' -f $MyInvocation.MyCommand.name, $_.gmail) -F Green
+   return $_
+  }
+  Write-Host ('{0},{1},{2} (Google Workspace for Education Plus)' -f $MyInvocation.MyCommand.Name, $_.gmail, $license) -F DarkCyan
   if (!$WhatIf) { (& $gam user "$($_.gmail)" add license $license) *>$null }
   $_
  }
@@ -504,7 +526,4 @@ do {
 until ( $WhatIf -or ((Get-Date) -gt (Get-Date '5:00PM')))
 Show-BlockInfo end
 if ($WhatIf) { Show-TestRun }
-if ($LASTEXITCODE = 56) { $LASTEXITCODE = 0 } # Gam.exe ENTITY_DOES_NOT_EXIST_RC = 56
-
-'Script Errors:'
-$error
+# if ($LASTEXITCODE = 56) { $LASTEXITCODE = 0 } # Gam.exe ENTITY_DOES_NOT_EXIST_RC = 56

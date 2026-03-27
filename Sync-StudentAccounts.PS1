@@ -393,8 +393,10 @@ function Update-GSuiteLicense {
   if (!$_.gSuiteData) { return $_ }
   #SKU: 1010310003 = Google Workspace for Education Plus - Legacy (Student)
   #SKU: 1010310008 = Google Workspace for Education Plus
-  Write-Host ('{0},{1},{2}' -f $MyInvocation.MyCommand.Name, $_.gmail, 1010310008) -F DarkCyan
-  if (!$WhatIf) { (& $gam user "$($_.gmail)" add license 1010310008) *>$null }
+  $license = 1010310008
+  Write-Host ('{0},{1},{2}' -f $MyInvocation.MyCommand.Name, $_.gmail, $license) -F DarkCyan
+  $isLicensed = & gam user info "$($_.gmail)"
+  if (!$WhatIf) { (& $gam user "$($_.gmail)" add license $license) *>$null }
   $_
  }
 }

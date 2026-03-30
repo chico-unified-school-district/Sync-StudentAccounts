@@ -53,6 +53,7 @@ param(
  [Parameter(Mandatory = $True)][int[]]$ValidSiteCodes,
  [Parameter(Mandatory = $True)][string]$DistrictDomain,
  [Parameter(Mandatory = $True)][string]$GSuiteDomain,
+ [Parameter(Mandatory = $false)][string]$StopTime = '5:00PM',
  [Alias('wi')][switch]$WhatIf
 )
 
@@ -523,7 +524,7 @@ do {
   Start-Sleep (60 * $waitMinutes)
  }
 }
-until ( $WhatIf -or ((Get-Date) -gt (Get-Date '5:00PM')))
+until ( $WhatIf -or ((Get-Date) -gt (Get-Date $StopTime)))
 Show-BlockInfo end
 if ($WhatIf) { Show-TestRun }
 # if ($LASTEXITCODE = 56) { $LASTEXITCODE = 0 } # Gam.exe ENTITY_DOES_NOT_EXIST_RC = 56

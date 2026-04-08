@@ -234,8 +234,8 @@ function Set-GSuiteData {
  process {
   # If AD account too new then skip
   if ($_.ad.created -gt (Get-Date).AddMinutes(-45)) { return $_ }
-  # ($_.gSuiteData = & $gam print users query "email:$($_.gmail)" fields suspended, archived | ConvertFrom-Csv)*>$null
-  $_.gSuiteData = & $gam info user "$($_.gmail)"
+  # ($_.gSuiteData = & $gam redirect stderr null print users query "email:$($_.gmail)" fields suspended, archived | ConvertFrom-Csv)*>$null
+  $_.gSuiteData = & $gam redirect stderr null info user "$($_.gmail)"
   $_
  }
 }
@@ -296,7 +296,7 @@ function Update-ADAttributes {
  process {
   # Only set attributes if gsuite and ad accounts exist
   if (!$_.ad -or !$_.gSuiteData) { return $_ }
-  $adDeptNum = try { $_.ad.departmentNumber[0] } catch { $null }
+  $adDeptNum = if ($_.ad.departmentNumber) { $_.ad.departmentNumber[0] } else { $null }
   $description = ($_.site.SiteName + ' Student').Trim()
   $attributeList = @(
    'name,ad,new'
@@ -383,7 +383,7 @@ function Update-GSuiteArchivedOff {
   }
   # GSuite Archived to 'OFF' if needed```
   Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.name, $_.gmail) -F DarkMagenta
-  if (!$WhatIf) { (& $gam update user "$($_.gmail)" archived off) *>$null }
+  if (!$WhatIf) { (& $gam redirect stderr null update user "$($_.gmail)" archived off) *>$null }
   $_
  }
 }
@@ -400,7 +400,7 @@ function Update-GSuiteToActive {
   }
   # GSuite Suspended to 'OFF' if needed```
   Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.name, $_.gmail) -F DarkMagenta
-  if (!$WhatIf) { (& $gam update user "$($_.gmail)" suspended off) *>$null }
+  if (!$WhatIf) { (& $gam redirect stderr null update user "$($_.gmail)" suspended off) *>$null }
   $_
  }
 }
@@ -419,7 +419,7 @@ function Update-GSuiteLicense {
    return $_
   }
   Write-Host ('{0},{1},{2} (Google Workspace for Education Plus)' -f $MyInvocation.MyCommand.Name, $_.gmail, $license) -F DarkCyan
-  if (!$WhatIf) { (& $gam user "$($_.gmail)" add license $license) *>$null }
+  if (!$WhatIf) { (& $gam redirect stderr null user "$($_.gmail)" add license $license) *>$null }
   $_
  }
 }
@@ -452,7 +452,7 @@ function Restore-GSuiteDeleted {
   function getDeletedGSuiteAccounts {
    Write-Verbose ('{0},Getting deleted gSuite accounts' -f $MyInvocation.MyCommand.Name)
    for ($i; $i -le 5; $i++) {
-    try { (& $gam print users deleted_only | ConvertFrom-Csv) *>$null }
+    try { (& $gam redirect stderr null print users deleted_only | ConvertFrom-Csv) *>$null }
     catch {
      Write-Warning ('{0},Failed to get deleted gSuite accounts, check GAM connectivity' -f $MyInvocation.MyCommand.Name)
      Start-Sleep -Seconds 30
@@ -464,7 +464,7 @@ function Restore-GSuiteDeleted {
  process {
   if ($deletedGSuite.primaryEmail -notmatch $_.gmail) { return $_ }
   Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.Name, $_.gmail)
-  if (!$WhatIf) { (& $gam undelete user "$($_.gmail)") *>$null }
+  if (!$WhatIf) { (& $gam redirect stderr null undelete user "$($_.gmail)") *>$null }
   $_
  }
 }

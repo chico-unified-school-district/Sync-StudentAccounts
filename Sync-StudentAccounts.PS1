@@ -107,17 +107,16 @@ function Get-ActiveAD ($ou) {
  }
  process {
   # 'gecos' stores Aeries STU.GR (grade level)
-  $adProperties = 'EmployeeId', 'departmentNumber', 'Department', 'gecos', 'homePage'
+  $adProperties = 'EmployeeId', 'departmentNumber', 'gecos'
   $params = @{
    Filter     = "EmployeeId -like '*' -and Enabled -eq 'True'"
-   # Filter     = "HomePage -like '*@*' -and EmployeeId -like '*' -and Enabled -eq 'True'"
    SearchBase = $ou
    Properties = $adProperties
   }
   $output = Get-ADUser @params |
    Select-Object -Property SamAccountName,
    @{n = 'ID'; e = { [string]$_.EmployeeId.Trim() } },
-   @{n = 'SC'; e = { [string](testInt $_.departmentNumber[0]) } } ,
+   @{n = 'SC'; e = { [string](testInt $_.departmentNumber) } } ,
    @{n = 'GR'; e = { [string](testInt $_.gecos) } }
   Write-Host ('{0}, Count: {1}' -f $MyInvocation.MyCommand.name, @($output).count) -F Green
   $output
@@ -288,7 +287,7 @@ function Update-ADAttributes {
  process {
   # Only set attributes if gsuite and ad accounts exist
   if (!$_.ad -or !$_.gSuiteData) { return $_ }
-  $adDeptNum = if ($_.ad.departmentNumber) { $_.ad.departmentNumber[0] } else { $null }
+  $adDeptNum = if ($_.ad.departmentNumber -match '^\d+$') { $_.ad.departmentNumber } else { $null }
   $description = ($_.site.SiteName + ' Student').Trim()
   $attributeList = @(
    'name,ad,new'

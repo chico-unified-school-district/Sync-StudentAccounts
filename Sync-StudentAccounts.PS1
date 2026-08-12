@@ -39,21 +39,18 @@ param(
  [switch]$OutputResults,
  [Parameter(Mandatory = $True)][Alias('DCs')]  [string[]]$DomainControllers,
  # PSSession to Domain Controller and Use Active Directory CMDLETS
- [Parameter(Mandatory = $True)]
- [System.Management.Automation.PSCredential]$ADCredential,
+ [Parameter(Mandatory = $True)] [PSCredential]$ADCredential,
  [Parameter(Mandatory = $True)][string]$StudentOrgUnit,
  [string[]]$ProtectedADGroups,
  [string]$SecondaryGroup,
- [string]$StudentHomeDirGroup,
- [Parameter(Mandatory = $True)][Alias('FSCred')][System.Management.Automation.PSCredential]$FileServerCredential,
- [string[]]$HomeDirFullAccess,
  [Parameter(Mandatory = $true)][string]$SISServer,
  [Parameter(Mandatory = $true)][string]$SISDatabase,
- [Parameter(Mandatory = $True)][System.Management.Automation.PSCredential]$SISCredential,
+ [Parameter(Mandatory = $True)][PSCredential]$SISCredential,
  [Parameter(Mandatory = $True)][int[]]$ValidSiteCodes,
  [Parameter(Mandatory = $True)][string]$DistrictDomain,
  [Parameter(Mandatory = $True)][string]$GSuiteDomain,
  [Parameter(Mandatory = $false)][string]$StopTime = '5:00PM',
+ [switch]$Wait,
  [Alias('wi')][switch]$WhatIf
 )
 
@@ -65,7 +62,7 @@ function Compare-Data ($adData, $aeriesData) {
    DifferenceObject = $adData
    Property         = 'ID', 'GR', 'SC'
   }
-  $results = Compare-Object @compareParams | Where-Object { $_.sideindicator -eq '<=' }
+  $results = Compare-Object @compareParams | Where-Object { $_.SideIndicator -eq '<=' }
   Write-Verbose ( '{0},Count: {1}' -f $MyInvocation.MyCommand.name, @($output).count)
   $results | Sort-Object
  }
@@ -76,12 +73,8 @@ function Complete-Processing {
  process {
   $i++
   Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.Name, $_.sam) -F DarkGreen
-  # TODO
-  if (!$_.sam) {
-   Write-Host ($_ | Out-String)
-   # Read-Host 'SAM MISSING'
-  }
   Write-Verbose ($MyInvocation.MyCommand.Name, $_ | Out-String )
+  if ($Wait) { Read-Host 'Continue?' }
  }
  end { Write-Host "Total Processed: $i ==================================================" -F Green }
 }
@@ -108,7 +101,10 @@ function Format-UsrObj ($sisData, $dDomain, $gDomain) {
 }
 
 function Get-ActiveAD ($ou) {
- begin { Write-Verbose ('{0}' -f $MyInvocation.MyCommand.Name) }
+ begin {
+  Write-Verbose ('{0}' -f $MyInvocation.MyCommand.Name)
+  function testInt ($myData) { if ($myData -match '^\d+$') { [int]$myData } else { 9999999 } }
+ }
  process {
   # 'gecos' stores Aeries STU.GR (grade level)
   $adProperties = 'EmployeeId', 'departmentNumber', 'Department', 'gecos', 'homePage'
@@ -121,8 +117,8 @@ function Get-ActiveAD ($ou) {
   $output = Get-ADUser @params |
    Select-Object -Property SamAccountName,
    @{n = 'ID'; e = { [string]$_.EmployeeId.Trim() } },
-   @{n = 'SC'; e = { [string]$_.departmentNumber[0].Trim() } } ,
-   @{n = 'GR'; e = { [string]$_.gecos.Trim() } }
+   @{n = 'SC'; e = { [string](testInt $_.departmentNumber[0]) } } ,
+   @{n = 'GR'; e = { [string](testInt $_.gecos) } }
   Write-Host ('{0}, Count: {1}' -f $MyInvocation.MyCommand.name, @($output).count) -F Green
   $output
  }
@@ -137,7 +133,9 @@ function Get-ActiveSiS ($sqlParams, $query) {
  }
 }
 
-function Get-StuObject ($id) { Get-ADUser -Filter "EmployeeId -eq '$id'" -Properties * }
+function Get-StuObject ($id) {
+ Get-ADUser -Filter "EmployeeId -eq '$id'" -Properties *
+}
 
 function New-StuADObject ($stuOu) {
  process {
@@ -166,27 +164,6 @@ function New-StuADObject ($stuOu) {
  }
 }
 
-function New-StudentHomeDir ($serverUser, $fullAccess) {
- begin {
-  . .\lib\New-HomeDir.ps1
-  $myDomain = (Get-ADDomain).name.ToUpper()
- }
- process {
-  if (!$_.ad -or !$_.site) { return $_ }
-  $params = @{
-   FileServer = $_.site.FileServer
-   ShareName  = $_.site.ShareName
-   Credential = $serverUser
-   Domain     = $myDomain
-   Samid      = $_.sam
-   FullAccess = $fullAccess
-   WhatIf     = $WhatIf
-  }
-  New-HomeDir @params
-  $_
- }
-}
-
 function Out-Results {
  begin {
   Write-Host ( '{0},Outputting results only' -f $MyInvocation.MyCommand.name) -F Blue
@@ -210,7 +187,7 @@ function Set-ADData {
  }
 }
 
-function Set-GroupData ($protectedGroups, $pwGroupSecondary, $homeDirGroup) {
+function Set-GroupData ($protectedGroups, $pwGroupSecondary) {
  process {
   if (!$_.ad -or !$_.site) { return $_ }
 
@@ -218,7 +195,7 @@ function Set-GroupData ($protectedGroups, $pwGroupSecondary, $homeDirGroup) {
   $current = $_.ad.memberof | ForEach-Object { $_.split(',')[0].TrimStart('CN').TrimStart('=') }
   $_.groupData.current = $current
 
-  $addGroups = $_.site.StudentGroup, $_.site.FilterGroup, $homeDirGroup
+  $addGroups = $_.site.StudentGroup, $_.site.FilterGroup
   if ([int]$_.sis.GR -ge 6) { $addGroups += $pwGroupSecondary }
 
   # Remove - If the group is not in protected and not in the add list then include in the remove group
@@ -230,15 +207,30 @@ function Set-GroupData ($protectedGroups, $pwGroupSecondary, $homeDirGroup) {
  }
 }
 
-function Set-GSuiteData {
+function Set-GSuiteData ($gData) {
  process {
   # If AD account too new then skip
   if ($_.ad.created -gt (Get-Date).AddMinutes(-45)) { return $_ }
-  # ($_.gSuiteData = & $gam redirect stderr null print users query "email:$($_.gmail)" fields suspended, archived | ConvertFrom-Csv)*>$null
-  $_.gSuiteData = & $gam redirect stderr null info user "$($_.gmail)"
+  $gmail = $_.gmail
+  $_.gSuiteData = if ($gData) {
+   $gData.Where({ $_.primaryEmail -eq $gmail })
+  }
+  else {
+   & $gam redirect stderr null print users query "email:$($_.gmail)" fields suspended, archived | ConvertFrom-Csv
+  }
   $_
  }
 }
+
+# function Set-GSuiteData {
+#  process {
+#   # If AD account too new then skip
+#   if ($_.ad.created -gt (Get-Date).AddMinutes(-45)) { return $_ }
+#   # ($_.gSuiteData = & $gam redirect stderr null print users query "email:$($_.gmail)" fields suspended, archived | ConvertFrom-Csv)*>$null
+#   $_.gSuiteData = & $gam redirect stderr null info user "$($_.gmail)"
+#   $_
+#  }
+# }
 
 function Set-OrgUnit {
  process {
@@ -271,13 +263,13 @@ function Set-SiteData {
  }
 }
 
-function Skip-BadName {
- process {
-  # Skips processing if first and/or last name is missing. Includes latin characters.
-  if ($_.sam -match '^[A-Z|\p{L}][A-Z|\p{L}]\d{5,}$') { return $_ }
-  Write-Warning ('{0},{1},[{2}]' -f $MyInvocation.MyCommand.Name, $_.id, $_.sam)
- }
-}
+# function Skip-BadName {
+#  process {
+#   # Skips processing if first and/or last name is missing. Includes latin characters.
+#   if ($_.sam -match '^[A-Z|\p{L}][A-Z|\p{L}]\d{5,}$') { return $_ }
+#   Write-Warning ('{0},{1},[{2}]' -f $MyInvocation.MyCommand.Name, $_.id, $_.sam)
+#  }
+# }
 
 function Update-ADAttributes {
  begin {
@@ -313,7 +305,8 @@ function Update-ADAttributes {
    if (skipAttribute -adObj $_.ad -attribName $attrib.name) { continue }
    if (($attrib.new -is [string]) -and ($attrib.ad -ne $attrib.new)) {
     $msg = $MyInvocation.MyCommand.name, $_.sam , $attrib.name , $attrib.ad, $attrib.new
-    Write-Host ( '{0},{1},Prop:[{2}],Old:[{3}],New:[{4}]' -f $msg) -F DarkMagenta
+    # Write-Host ( '{0},{1},Prop:[{2}],Old:[{3}],New:[{4}]' -f $msg) -F DarkMagenta
+    Write-Verbose ( '{0},{1},Prop:[{2}],Old:[{3}],New:[{4}]' -f $msg)
     Set-ADUser -Identity $_.ad.ObjectGUID -Replace @{$attrib.name = $attrib.new.Trim() } -Confirm:$false -WhatIf:$WhatIf
    }
   }
@@ -336,7 +329,7 @@ function Update-AeriesStuData ($sqlParams) {
 
   $checkStuData = New-SqlOperation @sqlParams -Query 'SELECT * FROM STU WHERE ID = @id' -Parameters "id=$($_.EmployeeId)"
   if ( ($checkStuData.sem -eq $_.gmail) -and ($checkStuData.nid -eq $_.gmail)) { return $_ }
-  Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.Name, $_.gmail) -F DarkBlue
+  # Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.Name, $_.gmail) -F DarkBlue
   $sqlVarsSem = "sem=$($_.gmail)", "id=$($_.id)"
   Write-Verbose ('{0},{1},{2}' -f $MyInvocation.MyCommand.Name, $updateStuSem, ($sqlVarsSem -join ','))
   $sqlVarsNid = "nid=$($_.gmail)", "id=$($_.id)"
@@ -372,13 +365,13 @@ function Update-ADGroupsRemove {
 
 function Update-GSuiteArchivedOff {
  process {
-  # if (!$_.gSuiteData -or $_.gSuiteData.archived -eq 'False') { return $_ }
   if (!$_.gSuiteData) {
    Write-Host ('{0},{1},No GSuite data detected.' -f $MyInvocation.MyCommand.name, $_.gmail) -F Red
    return
   }
-  if ($_.gSuiteData -match 'Is Archived: False') {
-   Write-Host ('{0},{1},Account is not archived.' -f $MyInvocation.MyCommand.name, $_.gmail) -F Green
+  # if ($_.gSuiteData -match 'Is Archived: False') {
+  if ($_.gSuiteData.archived -eq 'False') {
+   Write-Verbose ('{0},{1},Account is not archived.' -f $MyInvocation.MyCommand.name, $_.gmail)
    return $_
   }
   # GSuite Archived to 'OFF' if needed```
@@ -394,8 +387,9 @@ function Update-GSuiteToActive {
    Write-Host ('{0},{1},No GSuite data detected.' -f $MyInvocation.MyCommand.name, $_.gmail) -F Red
    return
   }
-  if ($_.gSuiteData -match 'Account Suspended: False') {
-   Write-Host ('{0},{1},Account is already active.' -f $MyInvocation.MyCommand.name, $_.gmail) -F Green
+  # if ($_.gSuiteData -match 'Account Suspended: False') {
+  if ($_.gSuiteData.suspended -eq 'False') {
+   Write-Verbose ('{0},{1},Account is already active.' -f $MyInvocation.MyCommand.name, $_.gmail)
    return $_
   }
   # GSuite Suspended to 'OFF' if needed```
@@ -411,14 +405,8 @@ function Update-GSuiteLicense {
    Write-Host ('{0},{1},No GSuite data detected.' -f $MyInvocation.MyCommand.name, $_.gmail) -F Red
    return
   }
-  #SKU: 1010310003 = Google Workspace for Education Plus - Legacy (Student)
-  #SKU: 1010310008 = Google Workspace for Education Plus
-  $license = '1010310008'
-  if ($_.gSuiteData -match $license) {
-   Write-Host ('{0},{1},License is already applied.' -f $MyInvocation.MyCommand.name, $_.gmail) -F Green
-   return $_
-  }
-  Write-Host ('{0},{1},{2} (Google Workspace for Education Plus)' -f $MyInvocation.MyCommand.Name, $_.gmail, $license) -F DarkCyan
+  $license = '1010310008' #SKU: 1010310008 = Google Workspace for Education Plus
+  Write-Verbose ('{0},{1},{2} (Google Workspace for Education Plus)' -f $MyInvocation.MyCommand.Name, $_.gmail, $license)
   if (!$WhatIf) { (& $gam redirect stderr null user "$($_.gmail)" add license $license) *>$null }
   $_
  }
@@ -480,8 +468,7 @@ Show-BlockInfo $SISDatabase
 
 $gam = 'C:\GAM7\gam.exe'
 
-$adCmdLets = 'Get-ADDomain', 'Get-ADUser', 'Set-ADUser', 'New-ADUser', 'Move-ADObject',
-'Rename-ADObject', 'Remove-ADGroupMember', 'Add-ADGroupMember'
+$adCmdLets = 'Get-ADUser', 'Set-ADUser', 'New-ADUser', 'Move-ADObject', 'Remove-ADGroupMember', 'Add-ADGroupMember'
 
 $sqlInstance = @{ Server = Connect-DbaInstance -SqlInstance $SISServer -SqlCredential $SISCredential -Database $SISDatabase }
 
@@ -495,36 +482,37 @@ do {
  $activeAD = Get-ActiveAD $StudentOrgUnit
  $results = if ($TestData) { $TestData } else { Compare-Data -AeriesData $activeSIS -ADData $activeAD }
  if ($OutputResults) { $results | Out-Results; exit }
+ $gSuiteData = if (@($results).count -gt 10) {
+  Write-Host ('High user count detected. Prefetching GSuite data...') -F Blue
+  gam redirect stderr null print users query 'orgTitle:student' fields suspended, archived | ConvertFrom-Csv
+ }
 
- $results | Format-UsrObj $activeSIS $DistrictDomain $GSuiteDomain | Skip-BadName |
+ $results | Format-UsrObj $activeSIS $DistrictDomain $GSuiteDomain |
   Set-SiteData |
    Set-ADData |
     Set-OrgUnit |
      New-StuADObject $StudentOrgUnit |
       Update-OrgUnit |
        Update-MissingGrade |
-        Set-GroupData $ProtectedADGroups $SecondaryGroup $StudentHomeDirGroup |
+        Set-GroupData $ProtectedADGroups $SecondaryGroup |
          Update-ADGroupsRemove |
           Update-ADGroupsAdd |
            Restore-GSuiteDeleted |
-            Set-GSuiteData |
+            Set-GSuiteData -gData $gSuiteData |
              Update-GSuiteToActive |
               Update-GSuiteArchivedOff |
                Update-GSuiteLicense |
                 Update-ADAttributes |
                  Update-AeriesStuData $sqlInstance |
-                  # New-StudentHomeDir $FileServerCredential $HomeDirFullAccess $DistrictDomain |
                   Complete-Processing
 
  Clear-SessionData
- if (!$WhatIf) {
-  $waitMinutes = 60 - (Get-Date).Minute
-  $nextRun = (Get-Date).AddMinutes($waitMinutes)
-  Write-Host ('Next run time: {0}' -f $nextRun) -F Green
-  Start-Sleep (60 * $waitMinutes)
- }
+ if ($WhatIf) { break }
+ $waitMinutes = 60 - (Get-Date).Minute
+ $nextRun = (Get-Date).AddMinutes($waitMinutes)
+ Write-Host ('Next run time: {0}' -f $nextRun) -F Green
+ if (!$WhatIf) { Start-Sleep (60 * $waitMinutes) }
 }
 until ( $WhatIf -or ((Get-Date) -gt (Get-Date $StopTime)))
 Show-BlockInfo end
 if ($WhatIf) { Show-TestRun }
-# if ($LASTEXITCODE = 56) { $LASTEXITCODE = 0 } # Gam.exe ENTITY_DOES_NOT_EXIST_RC = 56

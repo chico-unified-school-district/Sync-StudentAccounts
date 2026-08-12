@@ -50,6 +50,7 @@ param(
  [Parameter(Mandatory = $True)][string]$DistrictDomain,
  [Parameter(Mandatory = $True)][string]$GSuiteDomain,
  [Parameter(Mandatory = $false)][string]$StopTime = '5:00PM',
+ [int]$StudentID,
  [switch]$Wait,
  [Alias('wi')][switch]$WhatIf
 )
@@ -208,28 +209,22 @@ function Set-GroupData ($protectedGroups, $pwGroupSecondary) {
 function Set-GSuiteData ($gData) {
  process {
   # If AD account too new then skip
-  if ($_.ad.created -gt (Get-Date).AddMinutes(-45)) { return $_ }
+  if ($_.ad.created -gt (Get-Date).AddMinutes(-45)) { return }
   $gmail = $_.gmail
   $_.gSuiteData = if ($gData) {
    $gData.Where({ $_.primaryEmail -eq $gmail })
   }
-  else {
-   & $gam redirect stderr null print users query "email:$($_.gmail)" fields suspended, archived | ConvertFrom-Csv
+  if (!$_.gSuiteData) {
+   $_.gSuiteData = & $gam redirect stderr null print users query "email:$($_.gmail)" fields suspended, archived | ConvertFrom-Csv
   }
-  if (!$_.gSuiteData) { return }
+  if (!$_.gSuiteData) {
+   Write-Host ('{0},{1},No GSuite data detected.' -f $MyInvocation.MyCommand.name, $_.gmail) -F Yellow
+   return
+  } # GSuite Data is required to continue
+  Write-Host ('{0},{1},GSuite user found! :) ========' -f $MyInvocation.MyCommand.Name, $gmail) -F DarkCyan
   $_
  }
 }
-
-# function Set-GSuiteData {
-#  process {
-#   # If AD account too new then skip
-#   if ($_.ad.created -gt (Get-Date).AddMinutes(-45)) { return $_ }
-#   # ($_.gSuiteData = & $gam redirect stderr null print users query "email:$($_.gmail)" fields suspended, archived | ConvertFrom-Csv)*>$null
-#   $_.gSuiteData = & $gam redirect stderr null info user "$($_.gmail)"
-#   $_
-#  }
-# }
 
 function Set-OrgUnit {
  process {
@@ -261,14 +256,6 @@ function Set-SiteData {
   $_
  }
 }
-
-# function Skip-BadName {
-#  process {
-#   # Skips processing if first and/or last name is missing. Includes latin characters.
-#   if ($_.sam -match '^[A-Z|\p{L}][A-Z|\p{L}]\d{5,}$') { return $_ }
-#   Write-Warning ('{0},{1},[{2}]' -f $MyInvocation.MyCommand.Name, $_.id, $_.sam)
-#  }
-# }
 
 function Update-ADAttributes {
  begin {
@@ -364,15 +351,8 @@ function Update-ADGroupsRemove {
 
 function Update-GSuiteArchivedOff {
  process {
-  if (!$_.gSuiteData) {
-   Write-Host ('{0},{1},No GSuite data detected.' -f $MyInvocation.MyCommand.name, $_.gmail) -F Red
-   return
-  }
   # if ($_.gSuiteData -match 'Is Archived: False') {
-  if ($_.gSuiteData.archived -eq 'False') {
-   Write-Verbose ('{0},{1},Account is not archived.' -f $MyInvocation.MyCommand.name, $_.gmail)
-   return $_
-  }
+  if ($_.gSuiteData.archived -eq 'False') { return $_ }
   # GSuite Archived to 'OFF' if needed```
   Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.name, $_.gmail) -F DarkMagenta
   if (!$WhatIf) { (& $gam redirect stderr null update user "$($_.gmail)" archived off) *>$null }
@@ -382,15 +362,7 @@ function Update-GSuiteArchivedOff {
 
 function Update-GSuiteToActive {
  process {
-  if (!$_.gSuiteData) {
-   Write-Host ('{0},{1},No GSuite data detected.' -f $MyInvocation.MyCommand.name, $_.gmail) -F Red
-   return
-  }
-  # if ($_.gSuiteData -match 'Account Suspended: False') {
-  if ($_.gSuiteData.suspended -eq 'False') {
-   Write-Verbose ('{0},{1},Account is already active.' -f $MyInvocation.MyCommand.name, $_.gmail)
-   return $_
-  }
+  if ($_.gSuiteData.suspended -eq 'False') { return $_ }
   # GSuite Suspended to 'OFF' if needed```
   Write-Host ('{0},{1}' -f $MyInvocation.MyCommand.name, $_.gmail) -F DarkMagenta
   if (!$WhatIf) { (& $gam redirect stderr null update user "$($_.gmail)" suspended off) *>$null }
@@ -400,13 +372,17 @@ function Update-GSuiteToActive {
 
 function Update-GSuiteLicense {
  process {
-  if (!$_.gSuiteData) {
-   Write-Host ('{0},{1},No GSuite data detected.' -f $MyInvocation.MyCommand.name, $_.gmail) -F Red
-   return
-  }
   $license = '1010310008' #SKU: 1010310008 = Google Workspace for Education Plus
   Write-Verbose ('{0},{1},{2} (Google Workspace for Education Plus)' -f $MyInvocation.MyCommand.Name, $_.gmail, $license)
   if (!$WhatIf) { (& $gam redirect stderr null user "$($_.gmail)" add license $license) *>$null }
+  $_
+ }
+}
+
+function Update-GSuiteTitle {
+ process {
+  Write-Verbose ('{0},{1},Title = student' -f $MyInvocation.MyCommand.name, $_.gmail)
+  if (!$WhatIf) { (& $gam redirect stderr null update user "$($_.gmail)" organization title student) *>$null }
   $_
  }
 }
@@ -472,7 +448,9 @@ $adCmdLets = 'Get-ADUser', 'Set-ADUser', 'New-ADUser', 'Move-ADObject', 'Remove-
 $sqlInstance = @{ Server = Connect-DbaInstance -SqlInstance $SISServer -SqlCredential $SISCredential -Database $SISDatabase }
 
 $siteCodes = $ValidSiteCodes -join ','
-$studentQuery = (Get-Content -Path '.\sql\active-students3.sql' -Raw) -replace 'VALID_SITE_CODES', $siteCodes
+$studentQueryWithSiteCodes = (Get-Content -Path '.\sql\active-students3.sql' -Raw) -replace 'VALID_SITE_CODES', $siteCodes
+$customStudentID = if ($StudentID) { 'AND S.ID = {0}' -f $StudentID } else { ' --NO CUSTOM ID SPECIFIED' }
+$studentQuery = ($studentQueryWithSiteCodes) -replace 'CUSTOM_STUDENT_ID', $customStudentId
 Write-Verbose ($studentQuery | Out-String)
 
 do {
@@ -481,10 +459,11 @@ do {
  $activeAD = Get-ActiveAD $StudentOrgUnit
  $results = if ($TestData) { $TestData } else { Compare-Data -AeriesData $activeSIS -ADData $activeAD }
  if ($OutputResults) { $results | Out-Results; exit }
- $gSuiteData = if (@($results).count -gt 10) {
+ $allGSuiteUsers = if (@($results).count -gt 10) {
   Write-Host ('High user count detected. Prefetching GSuite data...') -F Blue
-  gam redirect stderr null print users query 'orgTitle:student' fields suspended, archived | ConvertFrom-Csv
+  gam redirect stderr null print users query fields suspended, archived | ConvertFrom-Csv
  }
+ else { $null }
 
  $results | Format-UsrObj $activeSIS $DistrictDomain $GSuiteDomain |
   Set-SiteData |
@@ -497,13 +476,14 @@ do {
          Update-ADGroupsRemove |
           Update-ADGroupsAdd |
            Restore-GSuiteDeleted |
-            Set-GSuiteData -gData $gSuiteData |
+            Set-GSuiteData -gData $allGSuiteUsers |
              Update-GSuiteToActive |
               Update-GSuiteArchivedOff |
-               Update-GSuiteLicense |
-                Update-ADAttributes |
-                 Update-AeriesStuData $sqlInstance |
-                  Complete-Processing
+               Update-GSuiteTitle |
+                Update-GSuiteLicense |
+                 Update-ADAttributes |
+                  Update-AeriesStuData $sqlInstance |
+                   Complete-Processing
 
  Clear-SessionData
  if ($WhatIf) { break }

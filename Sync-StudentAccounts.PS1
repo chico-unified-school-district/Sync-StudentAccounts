@@ -63,7 +63,7 @@ function Compare-Data ($adData, $aeriesData) {
    Property         = 'ID', 'GR', 'SC'
   }
   $results = Compare-Object @compareParams | Where-Object { $_.SideIndicator -eq '<=' }
-  Write-Verbose ( '{0},Count: {1}' -f $MyInvocation.MyCommand.name, @($results).count)
+  Write-Host ( '{0},Count: {1}' -f $MyInvocation.MyCommand.name, @($results).count)
   $results | Sort-Object
  }
 }
@@ -103,21 +103,20 @@ function Format-UsrObj ($sisData, $dDomain, $gDomain) {
 function Get-ActiveAD ($ou) {
  begin {
   Write-Verbose ('{0}' -f $MyInvocation.MyCommand.Name)
-  function testInt ($myData) { if ($myData -match '^\d+$') { [int]$myData } else { 9999999 } }
+  function testInt ($myData) { if ($myData -match '\d') { $myData } else { 9999999 } }
  }
  process {
   # 'gecos' stores Aeries STU.GR (grade level)
-  $adProperties = 'EmployeeId', 'departmentNumber', 'gecos'
   $params = @{
    Filter     = "EmployeeId -like '*' -and Enabled -eq 'True'"
    SearchBase = $ou
-   Properties = $adProperties
+   Properties = 'EmployeeId', 'departmentNumber', 'Gecos'
   }
   $output = Get-ADUser @params |
    Select-Object -Property SamAccountName,
    @{n = 'ID'; e = { [string]$_.EmployeeId.Trim() } },
-   @{n = 'SC'; e = { [string](testInt $_.departmentNumber) } } ,
-   @{n = 'GR'; e = { [string](testInt $_.gecos) } }
+   @{n = 'GR'; e = { testInt $_.Gecos } },
+   @{n = 'SC'; e = { [string](testInt $_.departmentNumber[0]).Trim() } }
   Write-Host ('{0}, Count: {1}' -f $MyInvocation.MyCommand.name, @($output).count) -F Green
   $output
  }
@@ -217,6 +216,7 @@ function Set-GSuiteData ($gData) {
   else {
    & $gam redirect stderr null print users query "email:$($_.gmail)" fields suspended, archived | ConvertFrom-Csv
   }
+  if (!$_.gSuiteData) { return }
   $_
  }
 }

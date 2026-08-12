@@ -63,7 +63,7 @@ function Compare-Data ($adData, $aeriesData) {
    Property         = 'ID', 'GR', 'SC'
   }
   $results = Compare-Object @compareParams | Where-Object { $_.SideIndicator -eq '<=' }
-  Write-Verbose ( '{0},Count: {1}' -f $MyInvocation.MyCommand.name, @($output).count)
+  Write-Verbose ( '{0},Count: {1}' -f $MyInvocation.MyCommand.name, @($results).count)
   $results | Sort-Object
  }
 }

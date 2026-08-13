@@ -104,20 +104,19 @@ function Format-UsrObj ($sisData, $dDomain, $gDomain) {
 function Get-ActiveAD ($ou) {
  begin {
   Write-Verbose ('{0}' -f $MyInvocation.MyCommand.Name)
-  function testInt ($myData) { if ($myData -match '\d') { $myData } else { 9999999 } }
+  function testVal ($val) { if ($null -eq $val -or @($val).count -eq 0 ) { 999 } else { $val[0].Trim() } }
  }
  process {
-  # 'gecos' stores Aeries STU.GR (grade level)
   $params = @{
    Filter     = "EmployeeId -like '*' -and Enabled -eq 'True'"
    SearchBase = $ou
    Properties = 'EmployeeId', 'departmentNumber', 'Gecos'
   }
   $output = Get-ADUser @params |
-   Select-Object -Property SamAccountName,
-   @{n = 'ID'; e = { [string]$_.EmployeeId.Trim() } },
-   @{n = 'GR'; e = { testInt $_.Gecos } },
-   @{n = 'SC'; e = { [string](testInt $_.departmentNumber[0]).Trim() } }
+   Select-Object -Property @{n = 'ID'; e = { $_.EmployeeId.Trim() } },
+   # 'gecos' stores Aeries STU.GR (grade level)
+   @{n = 'GR'; e = { $_.Gecos } },
+   @{n = 'SC'; e = { testVal $_.departmentNumber } }
   Write-Host ('{0}, Count: {1}' -f $MyInvocation.MyCommand.name, @($output).count) -F Green
   $output
  }

@@ -485,12 +485,16 @@ do {
                    Complete-Processing
 
  Clear-SessionData
- if ($WhatIf) { break }
- $waitMinutes = 60 - (Get-Date).Minute
- $nextRun = (Get-Date).AddMinutes($waitMinutes)
- Write-Host ('Next run time: {0}' -f $nextRun) -F Green
- if (!$WhatIf) { Start-Sleep (60 * $waitMinutes) }
+
+ # if ($WhatIf) { break }
+ $now = [DateTime]::Now
+ $nextHour = [DateTime]::New($now.Year, $now.Month, $now.Day, $now.Hour, 0, 0).AddHours(1)
+ $secondsToWait = ($nextHour - $now).TotalSeconds
+ if (((Get-Date) -lt (Get-Date $StopTime))) {
+  Write-Host ('Next run time: {0}' -f $nextHour) -F Green
+  Start-Sleep -Seconds $secondsToWait
+ }
 }
-until ( $WhatIf -or ((Get-Date) -gt (Get-Date $StopTime)))
+until ( ((Get-Date) -ge (Get-Date $StopTime)))
 Show-BlockInfo end
 if ($WhatIf) { Show-TestRun }

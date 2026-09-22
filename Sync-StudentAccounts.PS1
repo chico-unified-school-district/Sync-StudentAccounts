@@ -479,10 +479,10 @@ do {
              Update-GSuiteToActive |
               Update-GSuiteArchivedOff |
                Update-GSuiteTitle |
-                Update-GSuiteLicense |
-                 Update-ADAttributes |
-                  Update-AeriesStuData $sqlInstance |
-                   Complete-Processing
+                # Update-GSuiteLicense |
+                Update-ADAttributes |
+                 Update-AeriesStuData $sqlInstance |
+                  Complete-Processing
 
  Clear-SessionData
 

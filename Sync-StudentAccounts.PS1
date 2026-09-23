@@ -40,7 +40,7 @@ param(
  [Parameter(Mandatory = $True)][Alias('DCs')]  [string[]]$DomainControllers,
  # PSSession to Domain Controller and Use Active Directory CMDLETS
  [Parameter(Mandatory = $True)] [PSCredential]$ADCredential,
- [Parameter(Mandatory = $True)][string]$StudentOrgUnit,
+ [Parameter(Mandatory = $True)][string]$RootOU,
  [string[]]$ProtectedADGroups,
  [string]$SecondaryGroup,
  [Parameter(Mandatory = $true)][string]$SISServer,
@@ -108,7 +108,7 @@ function Get-ActiveAD ($ou) {
  }
  process {
   $params = @{
-   Filter     = "EmployeeId -like '*' -and Enabled -eq 'True'"
+   Filter     = "Enabled -eq 'True' -and employeeType -eq 'student'"
    SearchBase = $ou
    Properties = 'EmployeeId', 'departmentNumber', 'Gecos'
   }
@@ -135,10 +135,11 @@ function Get-StuObject ($id) {
  Get-ADUser -Filter "EmployeeId -eq '$id'" -Properties *
 }
 
-function New-StuADObject ($stuOu) {
+function New-StuADObject ($ou) {
  process {
   if ($_.ad) { return $_ }
   $tempPw = ConvertTo-SecureString -String (New-RandomPassword -length 16) -AsPlainText -Force
+  $stuOU = 'OU=Students,' + $ou
   # EmployeeId is Foreign DB key between AD and SiS
   $newObjParams = @{
    EmployeeId        = $_.id
@@ -152,7 +153,7 @@ function New-StuADObject ($stuOu) {
    Title             = 'Student'
    Description       = ($_.site.SiteName + ' Student').Trim()
    department        = $_.site.SiteName
-   Path              = $stuOu
+   Path              = $stuOU
   }
   Write-Verbose ($MyInvocation.MyCommand.Name, $newObjParams | Out-String)
   Write-Host ( '{0},{1}' -f $MyInvocation.MyCommand.name, $_.sam) -F DarkMagenta
@@ -455,7 +456,7 @@ Write-Verbose ($studentQuery | Out-String)
 do {
  Connect-ADSession $DomainControllers $ADCredential $adCmdLets
  $activeSIS = Get-ActiveSiS $sqlInstance $studentQuery
- $activeAD = Get-ActiveAD $StudentOrgUnit
+ $activeAD = Get-ActiveAD $RootOU
  $results = if ($TestData) { $TestData } else { Compare-Data -AeriesData $activeSIS -ADData $activeAD }
  if ($OutputResults) { $results | Out-Results; exit }
  $allGSuiteUsers = if (@($results).count -gt 10) {
@@ -468,7 +469,7 @@ do {
   Set-SiteData |
    Set-ADData |
     Set-OrgUnit |
-     New-StuADObject $StudentOrgUnit |
+     New-StuADObject $RootOU |
       Update-OrgUnit |
        Update-MissingGrade |
         Set-GroupData $ProtectedADGroups $SecondaryGroup |

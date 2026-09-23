@@ -487,7 +487,7 @@ do {
 
  Clear-SessionData
 
- # if ($WhatIf) { break }
+ if ($WhatIf) { break }
  $now = [DateTime]::Now
  $nextHour = [DateTime]::New($now.Year, $now.Month, $now.Day, $now.Hour, 0, 0).AddHours(1)
  $secondsToWait = ($nextHour - $now).TotalSeconds
